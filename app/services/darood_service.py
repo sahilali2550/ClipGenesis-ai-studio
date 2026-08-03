@@ -464,8 +464,17 @@ def generate_darood_video(
             except Exception:
                 pass
 
-        logger.success(f"Viral Facebook Reel Style Video generated at {out_path}")
-        return out_path
+        # Save to dedicated section folder storage/darood_videos/
+        darood_out_dir = os.path.join(utils.root_dir(), "storage", "darood_videos")
+        os.makedirs(darood_out_dir, exist_ok=True)
+        final_darood_video = os.path.join(darood_out_dir, f"darood_{darood_id}_{task_id[:8]}.mp4")
+
+        import shutil
+        if os.path.exists(out_path):
+            shutil.copy(out_path, final_darood_video)
+
+        logger.success(f"Viral Darood Video saved to dedicated folder: {final_darood_video}")
+        return final_darood_video
     except Exception as ex:
         logger.error(f"Failed to generate Reel Video: {ex}")
         raise ex

@@ -376,6 +376,18 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
         sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         return
 
+    # Save to dedicated section folder storage/general_videos/
+    general_out_dir = path.join(utils.root_dir(), "storage", "general_videos")
+    os.makedirs(general_out_dir, exist_ok=True)
+    saved_general_videos = []
+    import shutil
+    for idx_v, f_path in enumerate(final_video_paths):
+        if path.exists(f_path):
+            sec_path = path.join(general_out_dir, f"video_{task_id[:8]}_{idx_v+1}.mp4")
+            shutil.copy(f_path, sec_path)
+            saved_general_videos.append(sec_path)
+            logger.info(f"📁 Video saved to dedicated section folder: {sec_path}")
+
     logger.success(
         f"task {task_id} finished, generated {len(final_video_paths)} videos."
     )

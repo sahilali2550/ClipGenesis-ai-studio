@@ -33,10 +33,12 @@ ISLAMIC_KEYWORDS = [
 
 
 def apply_echo(input_path: str, output_path: str, preset: str = "Medium") -> str:
-    """Apply echo/reverb effect to audio using FFmpeg."""
-    filter_str = ECHO_PRESETS.get(preset)
-    if not filter_str:
-        return input_path
+    """Apply echo/reverb effect + +7dB volume boost to recitation audio using FFmpeg."""
+    raw_filter = ECHO_PRESETS.get(preset)
+    if raw_filter:
+        filter_str = f"{raw_filter},volume=2.2"
+    else:
+        filter_str = "volume=2.2"
 
     cmd = [
         "ffmpeg", "-y", "-i", input_path,
@@ -402,9 +404,31 @@ def generate_quran_video(
         log(traceback.format_exc())
         return None
 
+    # Dedicated Quran Videos Output Folder
+    quran_out_dir = os.path.join(utils.root_dir(), "storage", "quran_videos")
+    os.makedirs(quran_out_dir, exist_ok=True)
+    final_section_video = os.path.join(quran_out_dir, f"quran_{surah}_{from_ayah}_{to_ayah}_{task_id[:8]}.mp4")
+
+    import shutil
+    if os.path.exists(output_path):
+        shutil.copy(output_path, final_section_video)
+        log(f"📁 Video saved to dedicated section folder: {final_section_video}")
+
+    # Auto-cleanup temporary render files to save disk space
+    try:
+        log("🧹 Cleaning up temporary PNG frames and intermediate audio files...")
+        import glob
+        for f in glob.glob(os.path.join(task_dir, "sub_*.png")) + glob.glob(os.path.join(task_dir, "*.mp3")) + glob.glob(os.path.join(task_dir, "*.txt")):
+            try:
+                os.remove(f)
+            except Exception:
+                pass
+    except Exception as clean_err:
+        log(f"⚠️ Temp cleanup notice: {clean_err}")
+
     progress(10, 10, "✅ Done!")
-    log(f"✅ Quran video saved: {output_path}")
-    return output_path
+    log(f"✅ Quran video saved: {final_section_video}")
+    return final_section_video
 
 
 def _compose_video_ffmpeg(

@@ -254,22 +254,41 @@ def build_subtitle_frame(
             canvas_width=video_width,
         )
 
-    # Paste Arabic at position
+    # Calculate positions & total container box
     arabic_y = int(video_height * position_pct) - arabic_img.height
-    frame.paste(arabic_img, (0, arabic_y), arabic_img)
-
-    # Translation image
+    tr_y = arabic_y + arabic_img.height + 8
+    
+    total_content_h = arabic_img.height
     if translation_text:
         tr_img = render_translation_line(
             translation_text,
             font_size=translation_font_size,
             color=translation_color,
             stroke_color=stroke_color,
-            stroke_width=1,
+            stroke_width=2,
             canvas_width=video_width,
             is_urdu=is_urdu_translation,
         )
-        tr_y = arabic_y + arabic_img.height + 8
+        total_content_h += tr_img.height + 8
+
+    # Render dark semi-transparent backdrop card behind text for 100% contrast & visibility
+    box_padding = 24
+    box_w = min(video_width - 60, max(arabic_img.width, tr_img.width if translation_text else 0) + box_padding * 2)
+    box_h = total_content_h + box_padding * 2
+    box_x0 = (video_width - box_w) // 2
+    box_y0 = arabic_y - box_padding
+    box_x1 = box_x0 + box_w
+    box_y1 = box_y0 + box_h
+
+    draw = ImageDraw.Draw(frame)
+    # Dark backdrop pill card with golden border
+    draw.rounded_rectangle([box_x0, box_y0, box_x1, box_y1], radius=16, fill=(0, 0, 0, 180), outline=(255, 215, 0, 160), width=2)
+
+    # Paste Arabic
+    frame.paste(arabic_img, (0, arabic_y), arabic_img)
+
+    # Paste Translation
+    if translation_text:
         frame.paste(tr_img, (0, tr_y), tr_img)
 
     return frame
