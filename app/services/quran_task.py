@@ -242,7 +242,7 @@ def generate_quran_video(
         app_config.app["pixabay_api_keys"] = [pixabay_api_key]
 
     import random
-    sample_k = min(4, len(ISLAMIC_KEYWORDS))
+    sample_k = min(8, len(ISLAMIC_KEYWORDS))
     selected_terms = random.sample(ISLAMIC_KEYWORDS, k=sample_k)
     video_width, video_height = (1080, 1920) if "9:16" in video_aspect else (1920, 1080)
 
@@ -256,7 +256,7 @@ def generate_quran_video(
             video_aspect=aspect_enum,
             video_contact_mode=VideoConcatMode.random,
             audio_duration=total_duration,
-            max_clip_duration=10,
+            max_clip_duration=4,
         )
     except Exception as e:
         log(f"⚠️ Background fetch warning: {e} — will use color background")
@@ -511,16 +511,35 @@ def _compose_video_ffmpeg(
         except Exception as bgm_err:
             log(f"⚠️ BGM FFmpeg mix error: {bgm_err}")
 
-    # 4. Background video selection
+    # 4. Multi-Visual Background Concat (Change scene every 4 seconds for rich visual variety)
     valid_bg = [p for p in background_paths if os.path.exists(p) and os.path.getsize(p) > 5000]
     import random
-    bg_input = random.choice(valid_bg) if valid_bg else None
+    if valid_bg:
+        random.shuffle(valid_bg)
+
+    bg_concat_path = os.path.join(task_dir, "bg_concat.txt")
+    has_bg_concat = False
+    if valid_bg:
+        curr_bg_t = 0.0
+        bg_i = 0
+        clip_dur = 4.0  # Change scene every 4 seconds
+        with open(bg_concat_path, "w", encoding="utf-8") as bf:
+            while curr_bg_t < total_duration:
+                bg_f = valid_bg[bg_i % len(valid_bg)]
+                dur = min(clip_dur, max(1.0, total_duration - curr_bg_t))
+                bf.write(f"file '{bg_f.replace(os.sep, '/')}'\n")
+                bf.write(f"duration {dur:.3f}\n")
+                curr_bg_t += dur
+                bg_i += 1
+            last_bg = valid_bg[(bg_i - 1) % len(valid_bg)]
+            bf.write(f"file '{last_bg.replace(os.sep, '/')}'\n")
+        has_bg_concat = True
 
     # 5. Build FFmpeg command inputs and filter graph
     cmd = ["ffmpeg", "-y"]
 
-    if bg_input:
-        cmd += ["-stream_loop", "-1", "-i", bg_input]
+    if has_bg_concat:
+        cmd += ["-f", "concat", "-safe", "0", "-i", bg_concat_path]
     else:
         cmd += ["-f", "lavfi", "-i", f"color=c=black:s={video_width}x{video_height}:r=30:d={total_duration:.2f}"]
 
@@ -535,8 +554,8 @@ def _compose_video_ffmpeg(
 
     # Filter graph
     filters = []
-    if bg_input:
-        filters.append(f"[0:v]scale={video_width}:{video_height}:force_original_aspect_ratio=increase,crop={video_width}:{video_height},setpts=PTS-STARTPTS[bg]")
+    if has_bg_concat:
+        filters.append(f"[0:v]scale={video_width}:{video_height}:force_original_aspect_ratio=increase,crop={video_width}:{video_height},fps=30,setpts=PTS-STARTPTS[bg]")
     else:
         filters.append(f"[0:v]setpts=PTS-STARTPTS[bg]")
 

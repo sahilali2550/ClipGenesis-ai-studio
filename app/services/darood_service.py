@@ -308,28 +308,40 @@ def generate_darood_video(
             v_aspect = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
             items = material.search_videos_pexels(term, minimum_duration=5, video_aspect=v_aspect)
             if items:
-                chosen = random.choice(items)
-                video_file_path = material.save_video(chosen.url, search_term=term)
-                if os.path.exists(video_file_path):
-                    raw_vclip = VideoFileClip(video_file_path)
-                    
-                    # Trim / Loop to match audio duration
-                    if raw_vclip.duration < duration:
-                        raw_vclip = raw_vclip.with_effects([Loop(duration=duration)])
+                v_clips = []
+                selected_items = items[:min(6, len(items))]
+                random.shuffle(selected_items)
+                curr_t = 0.0
+
+                for item_obj in selected_items:
+                    if curr_t >= duration:
+                        break
+                    v_path = material.save_video(item_obj.url, search_term=term)
+                    if os.path.exists(v_path) and os.path.getsize(v_path) > 5000:
+                        raw_c = VideoFileClip(v_path)
+                        sub_dur = min(4.0, raw_c.duration, max(1.0, duration - curr_t))
+                        c_trimmed = raw_c.subclipped(0, sub_dur)
+
+                        # Resize & Crop to exact (w, h)
+                        vw, vh = c_trimmed.size
+                        if vw != w or vh != h:
+                            scale = max(w / float(vw), h / float(vh))
+                            nw, nh = int(vw * scale), int(vh * scale)
+                            c_trimmed = c_trimmed.resized((nw, nh))
+                            cx, cy = (nw - w) // 2, (nh - h) // 2
+                            c_trimmed = c_trimmed.cropped(x1=cx, y1=cy, width=w, height=h)
+
+                        v_clips.append(c_trimmed)
+                        curr_t += sub_dur
+
+                if v_clips:
+                    # Loop concatenated clips sequence if needed to cover full duration
+                    full_concat = concatenate_videoclips(v_clips)
+                    if full_concat.duration < duration:
+                        full_concat = full_concat.with_effects([Loop(duration=duration)])
                     else:
-                        raw_vclip = raw_vclip.subclipped(0, duration)
-
-                    # Resize & Crop to exact (w, h)
-                    vw, vh = raw_vclip.size
-                    if vw != w or vh != h:
-                        scale = max(w / float(vw), h / float(vh))
-                        nw, nh = int(vw * scale), int(vh * scale)
-                        raw_vclip = raw_vclip.resized((nw, nh))
-                        
-                        cx, cy = (nw - w) // 2, (nh - h) // 2
-                        raw_vclip = raw_vclip.cropped(x1=cx, y1=cy, width=w, height=h)
-
-                    video_clip = raw_vclip
+                        full_concat = full_concat.subclipped(0, duration)
+                    video_clip = full_concat
         except Exception as pexels_err:
             logger.warning(f"Pexels video download fallback: {pexels_err}")
 
