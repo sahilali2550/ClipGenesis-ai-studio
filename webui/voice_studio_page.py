@@ -66,14 +66,24 @@ def render_voice_studio_page():
             if "last_fast_audio" in st.session_state and os.path.exists(st.session_state["last_fast_audio"]):
                 st.audio(st.session_state["last_fast_audio"])
                 
-                with open(st.session_state["last_fast_audio"], "rb") as f:
-                    st.download_button(
-                        label="⬇️ Download WAV Audio",
-                        data=f.read(),
-                        file_name="kokoro_tts_preview.wav",
-                        mime="audio/wav",
-                        use_container_width=True,
-                    )
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    with open(st.session_state["last_fast_audio"], "rb") as f:
+                        st.download_button(
+                            label="⬇️ Download WAV",
+                            data=f.read(),
+                            file_name="kokoro_tts_preview.wav",
+                            mime="audio/wav",
+                            use_container_width=True,
+                        )
+                with c_btn2:
+                    if st.button("✂️ Auto-Trim Silence", use_container_width=True):
+                        from app.services.audio_enhancer import audio_enhancer
+                        trimmed_path = audio_enhancer.trim_silence(st.session_state["last_fast_audio"])
+                        if trimmed_path and os.path.exists(trimmed_path):
+                            st.session_state["last_fast_audio"] = trimmed_path
+                            st.success("✂️ Dead silence trimmed successfully!")
+                            st.rerun()
 
                 sub_m = st.session_state.get("last_sub_maker")
                 if sub_m and hasattr(sub_m, "subs") and sub_m.subs:

@@ -754,6 +754,9 @@ def render_single_video():
             if custom_bgm_file and os.path.exists(custom_bgm_file):
                 params.bgm_file = custom_bgm_file
         params.bgm_volume = st.selectbox(tr("Background Music Volume"), options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], index=2)
+        color_presets = [("Original (No Grade)", "none"), ("Cinematic Warm", "cinematic_warm"), ("Vibrant Punch", "vibrant_punch"), ("Moody Dark", "moody_dark"), ("Vintage Film", "vintage_film")]
+        sel_color_idx = st.selectbox("🎨 Color Grading Filter", options=range(len(color_presets)), format_func=lambda x: color_presets[x][0], index=0)
+        params.color_preset = color_presets[sel_color_idx][1]
     start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
     if start_button:
         config.save_config()

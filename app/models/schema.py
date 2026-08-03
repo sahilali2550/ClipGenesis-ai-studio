@@ -128,6 +128,10 @@ class VideoParams(BaseModel):
     min_segment_length: Optional[int] = 25
     similarity_threshold: Optional[float] = 0.5
     diversity_threshold: Optional[int] = 5
+
+    # 🎨 Color grading & Audio polish settings
+    color_preset: Optional[str] = "none"
+    auto_trim_silence: Optional[bool] = False
     max_video_reuse: Optional[int] = 2  # Maximum times a video can be reused
     search_pool_size: Optional[int] = 50
     semantic_model: Optional[str] = "all-mpnet-base-v2"

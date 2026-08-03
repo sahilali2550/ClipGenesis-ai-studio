@@ -235,6 +235,28 @@ class AudioEnhancer:
             logger.error(f"Silence detection failed: {e}")
         return []
 
+    def trim_silence(self, audio_path: str, output_path: str = "",
+                     silence_threshold: str = "-40dB", min_silence_duration: float = 0.4) -> Optional[str]:
+        """Automatically trim dead silence gaps and pauses (> min_silence_duration) from audio"""
+        if not output_path:
+            output_path = audio_path.replace(".mp3", "_trimmed.mp3")
+
+        try:
+            # Use silenceremove filter to remove silence from start, middle, and end
+            af_filter = f"silenceremove=stop_periods=-1:stop_duration={min_silence_duration}:stop_threshold={silence_threshold}"
+            cmd = [
+                "ffmpeg", "-y", "-i", audio_path,
+                "-af", af_filter,
+                output_path
+            ]
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            logger.info(f"Audio silence trimmed successfully: {output_path}")
+            return output_path
+        except Exception as e:
+            logger.error(f"Trim silence failed: {e}")
+            return audio_path
+
 
 # Global instance
 audio_enhancer = AudioEnhancer()
+

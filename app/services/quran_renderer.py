@@ -273,3 +273,39 @@ def build_subtitle_frame(
         frame.paste(tr_img, (0, tr_y), tr_img)
 
     return frame
+
+
+def render_lower_third_badge(
+    title: str,
+    subtitle: str = "",
+    canvas_width: int = 1080,
+    canvas_height: int = 1920,
+    bg_color: tuple = (20, 20, 20, 210),
+    accent_color: tuple = (255, 215, 0, 255),
+    text_color: tuple = (255, 255, 255, 255),
+) -> Image.Image:
+    """Render a modern lower-third identity badge (e.g. Reciter Name, Surah info, Topic Card)"""
+    img = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    font_title = _get_font(URDU_FONT_PATH, 32)
+    font_sub = _get_font(FALLBACK_FONT_PATH, 24)
+
+    card_w = min(600, canvas_width - 80)
+    card_h = 75 if subtitle else 55
+    x0 = 40
+    y0 = canvas_height - card_h - 100
+    x1 = x0 + card_w
+    y1 = y0 + card_h
+
+    # Draw card background & accent border bar
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=12, fill=bg_color)
+    draw.rectangle([x0, y0, x0 + 6, y1], fill=accent_color)
+
+    # Draw text
+    draw.text((x0 + 20, y0 + 10), reshape_arabic(title), font=font_title, fill=text_color)
+    if subtitle:
+        draw.text((x0 + 20, y0 + 44), subtitle, font=font_sub, fill=(200, 200, 200, 255))
+
+    return img
+

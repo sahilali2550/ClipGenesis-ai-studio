@@ -421,8 +421,11 @@ def combine_videos(
                             lambda c: video_effects.slideout_transition(c, 1, shuffle_side),
                         ]
                         shuffle_transition = random.choice(transition_funcs)
-                        clip = shuffle_transition(clip)
-                
+                # Apply color preset & 30ms audio fade
+                if hasattr(params, "color_preset") and params.color_preset:
+                    clip = video_effects.apply_color_preset(clip, params.color_preset)
+                clip = video_effects.apply_audio_fade(clip, 0.03)
+
                 # Write clip to temp file first (base, no Ken Burns yet)
                 clip_file = f"{output_dir}/temp-semantic-clip-{i+1}.mp4"
                 clip.write_videofile(
@@ -537,6 +540,11 @@ def combine_videos(
                 if clip.duration > max_clip_duration:
                     clip = clip.subclipped(0, max_clip_duration)
                     
+                # Apply color preset & 30ms audio fade
+                if hasattr(params, "color_preset") and params.color_preset:
+                    clip = video_effects.apply_color_preset(clip, params.color_preset)
+                clip = video_effects.apply_audio_fade(clip, 0.03)
+
                 # Write clip to temp file first (base, no Ken Burns yet)
                 clip_file = f"{output_dir}/temp-clip-{i+1}.mp4"
                 clip.write_videofile(
