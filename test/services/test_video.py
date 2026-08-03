@@ -42,10 +42,14 @@ class TestVideoService(unittest.TestCase):
         # moviepy get video info
         clip = VideoFileClip(materials[0].url)
         print(clip)
+        vd.close_clip(clip)
         
         # clean generated test video file
         if os.path.exists(materials[0].url):
-            os.remove(materials[0].url)
+            try:
+                os.remove(materials[0].url)
+            except Exception:
+                pass
     
     def test_wrap_text(self):
         """test text wrapping function"""
