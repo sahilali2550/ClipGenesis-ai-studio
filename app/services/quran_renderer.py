@@ -226,7 +226,7 @@ def build_subtitle_frame(
     stroke_width: int = 2,
     translation_color: str = "#EEEEEE",
     is_urdu_translation: bool = True,
-    position_pct: float = 0.72,  # vertical position (0=top, 1=bottom)
+    position_pct: float = 0.52,  # vertical position (0.52 = middle of screen, mobile UI safe)
 ) -> Image.Image:
     """
     Compose the full subtitle overlay image for one video frame.

@@ -465,7 +465,8 @@ def _compose_video_ffmpeg(
     subtitle_clips_sorted = sorted(subtitle_clips, key=lambda x: x[0])
 
     cur_t = 0.0
-    last_img = blank_path
+    first_frame = subtitle_clips_sorted[0][2] if subtitle_clips_sorted else blank_path
+    last_img = first_frame if (first_frame and os.path.exists(first_frame)) else blank_path
     with open(concat_file_path, "w", encoding="utf-8") as f:
         for (start_sec, dur_sec, img_path) in subtitle_clips_sorted:
             if not os.path.exists(img_path) or start_sec >= total_duration:
@@ -511,35 +512,81 @@ def _compose_video_ffmpeg(
         except Exception as bgm_err:
             log(f"⚠️ BGM FFmpeg mix error: {bgm_err}")
 
-    # 4. Multi-Visual Background Concat (Change scene every 4 seconds for rich visual variety)
+    # 4. Multi-Visual Background Concat (Normalized 30fps H.264 composition for 100% continuous video motion)
     valid_bg = [p for p in background_paths if os.path.exists(p) and os.path.getsize(p) > 5000]
     import random
     if valid_bg:
         random.shuffle(valid_bg)
 
-    bg_concat_path = os.path.join(task_dir, "bg_concat.txt")
-    has_bg_concat = False
+    temp_bg_path = os.path.join(task_dir, "temp_bg.mp4")
+    has_bg_file = False
     if valid_bg:
-        curr_bg_t = 0.0
-        bg_i = 0
-        clip_dur = 4.0  # Change scene every 4 seconds
-        with open(bg_concat_path, "w", encoding="utf-8") as bf:
-            while curr_bg_t < total_duration:
-                bg_f = valid_bg[bg_i % len(valid_bg)]
-                dur = min(clip_dur, max(1.0, total_duration - curr_bg_t))
-                bf.write(f"file '{bg_f.replace(os.sep, '/')}'\n")
-                bf.write(f"duration {dur:.3f}\n")
-                curr_bg_t += dur
+        try:
+            log("🎬 Building normalized 30fps motion background track with 4-second scene switches...")
+            from moviepy.vfx import Loop
+            from moviepy.video.VideoClip import ColorClip
+            from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+            from moviepy.video.compositing.concatenate import concatenate_videoclips
+            from moviepy.video.io.VideoFileClip import VideoFileClip
+
+            v_clips = []
+            curr_bg_t = 0.0
+            bg_i = 0
+            while curr_bg_t < total_duration and valid_bg:
+                bg_path = valid_bg[bg_i % len(valid_bg)]
+                try:
+                    raw_c = VideoFileClip(bg_path)
+                    clip_dur = min(4.0, raw_c.duration, max(1.0, total_duration - curr_bg_t))
+                    c_trimmed = raw_c.subclipped(0, clip_dur)
+
+                    # Scale & Crop to exact (video_width, video_height)
+                    vw, vh = c_trimmed.size
+                    if vw != video_width or vh != video_height:
+                        scale = max(video_width / float(vw), video_height / float(vh))
+                        nw, nh = int(vw * scale), int(vh * scale)
+                        c_trimmed = c_trimmed.resized((nw, nh))
+                        cx, cy = (nw - video_width) // 2, (nh - video_height) // 2
+                        c_trimmed = c_trimmed.cropped(x1=cx, y1=cy, width=video_width, height=video_height)
+
+                    v_clips.append(c_trimmed)
+                    curr_bg_t += clip_dur
+                except Exception as clip_err:
+                    log(f"⚠️ Clip process skip: {clip_err}")
                 bg_i += 1
-            last_bg = valid_bg[(bg_i - 1) % len(valid_bg)]
-            bf.write(f"file '{last_bg.replace(os.sep, '/')}'\n")
-        has_bg_concat = True
+
+            if v_clips:
+                bg_sequence = concatenate_videoclips(v_clips, method="compose")
+                if bg_sequence.duration < total_duration:
+                    bg_sequence = bg_sequence.with_effects([Loop(duration=total_duration)])
+                else:
+                    bg_sequence = bg_sequence.subclipped(0, total_duration)
+
+                bg_sequence.write_videofile(
+                    temp_bg_path,
+                    fps=30,
+                    codec="libx264",
+                    preset="superfast",
+                    audio=False,
+                    threads=4,
+                    logger=None
+                )
+                bg_sequence.close()
+                for c in v_clips:
+                    try:
+                        c.close()
+                    except Exception:
+                        pass
+
+                if os.path.exists(temp_bg_path) and os.path.getsize(temp_bg_path) > 10000:
+                    has_bg_file = True
+        except Exception as bg_build_err:
+            log(f"⚠️ Motion background build fallback: {bg_build_err}")
 
     # 5. Build FFmpeg command inputs and filter graph
     cmd = ["ffmpeg", "-y"]
 
-    if has_bg_concat:
-        cmd += ["-f", "concat", "-safe", "0", "-i", bg_concat_path]
+    if has_bg_file:
+        cmd += ["-i", temp_bg_path]
     else:
         cmd += ["-f", "lavfi", "-i", f"color=c=black:s={video_width}x{video_height}:r=30:d={total_duration:.2f}"]
 
@@ -554,8 +601,8 @@ def _compose_video_ffmpeg(
 
     # Filter graph
     filters = []
-    if has_bg_concat:
-        filters.append(f"[0:v]scale={video_width}:{video_height}:force_original_aspect_ratio=increase,crop={video_width}:{video_height},fps=30,setpts=PTS-STARTPTS[bg]")
+    if has_bg_file:
+        filters.append(f"[0:v]fps=30,setpts=PTS-STARTPTS[bg]")
     else:
         filters.append(f"[0:v]setpts=PTS-STARTPTS[bg]")
 
