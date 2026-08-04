@@ -513,7 +513,8 @@ def _compose_video_ffmpeg(
             log(f"⚠️ BGM FFmpeg mix error: {bgm_err}")
 
     # 4. Multi-Visual Background Concat (Normalized 30fps H.264 composition for 100% continuous video motion)
-    valid_bg = [p for p in background_paths if os.path.exists(p) and os.path.getsize(p) > 5000]
+    bg_paths_str = [m.url if hasattr(m, "url") else str(m) for m in background_paths]
+    valid_bg = [p for p in bg_paths_str if os.path.exists(p) and os.path.getsize(p) > 5000]
     import random
     if valid_bg:
         random.shuffle(valid_bg)
