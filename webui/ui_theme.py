@@ -645,72 +645,79 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(3) {
   box-shadow: 0 5px 0 #115E59, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 4. PK Urdu Video - Ruby Crimson */
+/* 4. Link Re-Creator - Cyber Neon Lime Cyan */
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(4),
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(4) {
+  background: linear-gradient(180deg, #06B6D4 0%, #0284C7 100%) !important;
+  box-shadow: 0 5px 0 #0369A1, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 5. PK Urdu Video - Ruby Crimson */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(5),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(5) {
   background: linear-gradient(180deg, #F43F5E 0%, #E11D48 100%) !important;
   box-shadow: 0 5px 0 #9F1239, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 5. Single Video - Cyber Sapphire Blue */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(5),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(5) {
+/* 6. Single Video - Cyber Sapphire Blue */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(6),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(6) {
   background: linear-gradient(180deg, #3B82F6 0%, #2563EB 100%) !important;
   box-shadow: 0 5px 0 #1E40AF, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 6. Batch Gen - Deep Electric Purple */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(6),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(6) {
+/* 7. Batch Gen - Deep Electric Purple */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(7),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(7) {
   background: linear-gradient(180deg, #8B5CF6 0%, #7C3AED 100%) !important;
   box-shadow: 0 5px 0 #5B21B6, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 7. Video Wizard - Flame Orange */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(7),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(7) {
+/* 8. Video Wizard - Flame Orange */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(8),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(8) {
   background: linear-gradient(180deg, #FF6B35 0%, #FF4500 100%) !important;
   box-shadow: 0 5px 0 #B33000, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 8. Voice Studio - Neon Pink */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(8),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(8) {
+/* 9. Voice Studio - Neon Pink */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(9),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(9) {
   background: linear-gradient(180deg, #EC4899 0%, #DB2777 100%) !important;
   box-shadow: 0 5px 0 #9D174D, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 9. Voice & Trends - Sunflower Gold */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(9),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(9) {
+/* 10. Voice & Trends - Sunflower Gold */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(10),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(10) {
   background: linear-gradient(180deg, #EAB308 0%, #CA8A04 100%) !important;
   box-shadow: 0 5px 0 #854D0E, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 10. Templates - Royal Indigo */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(10),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(10) {
+/* 11. Templates - Royal Indigo */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(11),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(11) {
   background: linear-gradient(180deg, #6366F1 0%, #4F46E5 100%) !important;
   box-shadow: 0 5px 0 #3730A3, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 11. Smart Script - Cyan Turquoise */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(11),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(11) {
+/* 12. Smart Script - Cyan Turquoise */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(12),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(12) {
   background: linear-gradient(180deg, #06B6D4 0%, #0891B2 100%) !important;
   box-shadow: 0 5px 0 #155E75, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 12. A/B Testing - Coral Sunset */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(12),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(12) {
+/* 13. A/B Testing - Coral Sunset */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(13),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(13) {
   background: linear-gradient(180deg, #F97316 0%, #EA580C 100%) !important;
   box-shadow: 0 5px 0 #9A3412, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 13. Settings - Slate Titanium */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(13),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(13) {
+/* 14. Settings - Slate Titanium */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(14),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(14) {
   background: linear-gradient(180deg, #64748B 0%, #475569 100%) !important;
   box-shadow: 0 5px 0 #1E293B, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
@@ -800,12 +807,18 @@ def render_sidebar(version="1.3.0"):
     )
 
     page_options = [f"{p['icon']} {p['label']}" for p in PAGES]
+    curr_idx = st.session_state.get("nav_idx", 0)
+    if curr_idx >= len(page_options):
+        curr_idx = 0
+
+    if "top_nav_radio" in st.session_state and st.session_state["top_nav_radio"] not in page_options:
+        del st.session_state["top_nav_radio"]
 
     st.markdown('<div class="top-nav-bar">', unsafe_allow_html=True)
     selected = st.radio(
         "TopNavigation",
         options=page_options,
-        index=st.session_state.get("nav_idx", 0),
+        index=curr_idx,
         horizontal=True,
         label_visibility="collapsed",
         key="top_nav_radio",
