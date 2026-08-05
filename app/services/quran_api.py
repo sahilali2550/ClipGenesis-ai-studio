@@ -20,16 +20,23 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-# ── Popular Reciters ──────────────────────────────────────────────────────────
+# ── Popular & Viral Reciters ──────────────────────────────────────────────────
 RECITERS = {
-    "Mishary Al-Afasy":        {"id": 7,  "slug": "ar.alafasy"},
-    "Abdul Basit (Murattal)":  {"id": 1,  "slug": "ar.abdulsamad"},
-    "Abdul Basit (Mujawwad)":  {"id": 2,  "slug": "ar.abdulsamad"},
-    "Mahmoud Al-Hussary":      {"id": 6,  "slug": "ar.husary"},
-    "Maher Al-Mueaqly":        {"id": 9,  "slug": "ar.mahermuaiqly"},
-    "Saad Al-Ghamdi":          {"id": 8,  "slug": "ar.ghanim"},
-    "Abdur-Rahman As-Sudais":  {"id": 3,  "slug": "ar.abdurrahmaansudais"},
-    "Saud Al-Shuraym":         {"id": 10, "slug": "ar.saoodshuraym"},
+    "🔥 Yasser Al-Dosari (یاسر الدوسري) — Viral Reels ⭐":   {"id": 161, "slug": "ar.yasserdussary",     "everyayah": "Yasser_Ad-Dussary_128kbps"},
+    "Mishary Al-Afasy (مشاری العفاسی) ⭐":                 {"id": 7,   "slug": "ar.alafasy",           "everyayah": "Alafasy_128kbps"},
+    "🔥 Nasser Al-Qatami (ناصر القطامي) — Viral ⭐":       {"id": 166, "slug": "ar.nasseralqatami",   "everyayah": "Nasser_Alqatami_128kbps"},
+    " Mohamed Siddiq Al-Minshawi (Mujawwad)":             {"id": 8,   "slug": "ar.minshawimujawwad", "everyayah": "Minshawy_Mujawwad_192kbps"},
+    " Mohamed Siddiq Al-Minshawi (Murattal)":             {"id": 9,   "slug": "ar.minshawi",         "everyayah": "Minshawy_Murattal_128kbps"},
+    " Abdul Basit (Mujawwad)":                            {"id": 2,   "slug": "ar.abdulsamad",       "everyayah": "Abdul_Basit_Mujawwad_128kbps"},
+    " Abdul Basit (Murattal)":                            {"id": 1,   "slug": "ar.abdulsamad",       "everyayah": "Abdul_Basit_Murattal_192kbps"},
+    " Abu Bakr Al-Shatri (أبو بكر الشاطري)":              {"id": 4,   "slug": "ar.shaatree",         "everyayah": "Abu_Bakr_Ash-Shaatree_128kbps"},
+    " Maher Al-Mueaqly (ماهر المعيقلي)":                    {"id": 9,   "slug": "ar.mahermuaiqly",     "everyayah": "MaherAlMuaiqly128kbps"},
+    " Abdur-Rahman As-Sudais (إمام الحرم)":                {"id": 3,   "slug": "ar.abdurrahmaansudais", "everyayah": "Abdurrahmaan_As-Sudais_192kbps"},
+    " Saud Al-Shuraym (سعود الشريم)":                      {"id": 10,  "slug": "ar.saoodshuraym",     "everyayah": "Saood_ash-Shuraym_128kbps"},
+    " Saad Al-Ghamdi (سعد الغامدي)":                       {"id": 8,   "slug": "ar.ghanim",           "everyayah": "Ghamadi_40kbps"},
+    " Mahmoud Al-Hussary (الحصري)":                       {"id": 6,   "slug": "ar.husary",           "everyayah": "Husary_128kbps"},
+    " Hani Ar-Rifai (هاني الرفاعي)":                       {"id": 5,   "slug": "ar.hanirifai",        "everyayah": "Hani_Rifai_192kbps"},
+    " Ali Jaber (علي جابر)":                              {"id": 167, "slug": "ar.alijaber",         "everyayah": "Ali_Jaber_64kbps"},
 }
 
 # ── Translation editions ──────────────────────────────────────────────────────
@@ -249,7 +256,21 @@ def download_audio(surah: int, ayah: int, reciter_key_or_slug: str = "Mishary Al
     if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
         return filepath
 
-    # Method 1: Quran.com API v4
+    # Method 1: EveryAyah CDN Direct Download (High Quality & Fast)
+    everyayah_slug = r_info.get("everyayah", "")
+    if everyayah_slug:
+        try:
+            ea_url = f"https://everyayah.com/data/{everyayah_slug}/{surah:03d}{ayah:03d}.mp3"
+            res = requests.get(ea_url, headers=HEADERS, timeout=(4, 8))
+            if res.status_code == 200 and len(res.content) > 1000:
+                with open(filepath, "wb") as f:
+                    f.write(res.content)
+                logger.info(f"Downloaded (EveryAyah CDN): {surah}:{ayah} → {filename}")
+                return filepath
+        except Exception as e:
+            logger.warning(f"EveryAyah audio fetch failed for {surah}:{ayah}: {e}")
+
+    # Method 2: Quran.com API v4
     try:
         url = f"{BASE_URL}/verses/by_key/{surah}:{ayah}"
         params = {"audio": reciter_id}
@@ -267,7 +288,7 @@ def download_audio(surah: int, ayah: int, reciter_key_or_slug: str = "Mishary Al
     except Exception as e:
         logger.warning(f"Quran.com API audio fetch failed for {surah}:{ayah}: {e}")
 
-    # Method 2: Islamic Network CDN with global verse index
+    # Method 3: Islamic Network CDN with global verse index
     try:
         g_verse = get_global_verse_number(surah, ayah)
         cdn_url = f"{CDN_BASE}/128/{reciter_slug}/{g_verse}.mp3"
