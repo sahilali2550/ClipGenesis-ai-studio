@@ -383,9 +383,9 @@ def _wizard_script():
 
 def _wizard_media():
     st.markdown("### Step 3: Video Source & Concatenation")
-    video_sources = [("Pexels", "pexels"), ("Pixabay", "pixabay"), ("Local Files", "local"), ("TikTok", "douyin"), ("Bilibili", "bilibili")]
-    saved_source = config.app.get("video_source", "pexels")
-    src_idx = [v[1] for v in video_sources].index(saved_source)
+    video_sources = [("🔥 Hybrid (Pexels + Pixabay)", "hybrid"), ("Pexels", "pexels"), ("Pixabay", "pixabay"), ("Local Files", "local"), ("TikTok", "douyin"), ("Bilibili", "bilibili")]
+    saved_source = config.app.get("video_source", "hybrid")
+    src_idx = [v[1] for v in video_sources].index(saved_source) if saved_source in [v[1] for v in video_sources] else 0
     sel = st.selectbox("Video Source", options=range(len(video_sources)), format_func=lambda x: video_sources[x][0], index=src_idx, key="wiz_src")
     st.session_state["wizard_video_source"] = video_sources[sel][1]
     concat_modes = [("Sequential", "sequential"), ("Random", "random"), ("Semantic", "semantic")]
@@ -396,6 +396,18 @@ def _wizard_media():
     st.session_state["wizard_aspect"] = video_aspects[sel3][1]
     clip_dur = st.selectbox("Clip Duration (sec)", [2, 3, 4, 5, 6, 7, 8, 9, 10], index=3, key="wiz_clip_dur")
     st.session_state["wizard_clip_duration"] = clip_dur
+
+
+def render_dashboard():
+    pass # defined below
+
+
+# ── Step 3 Single Video Settings Helper ────────────────────────────────────
+def _render_video_source_settings(params, middle_panel):
+    pass
+
+
+# Inside render_single_video...
 
 
 def _wizard_audio():
@@ -588,9 +600,9 @@ def render_single_video():
         with st.container(border=True):
             st.write(tr("Video Settings"))
             video_concat_modes = [(tr("Sequential"), "sequential"), (tr("Random"), "random"), (tr("Semantic Text Alignment"), "semantic")]
-            video_sources = [(tr("Pexels"), "pexels"), (tr("Pixabay"), "pixabay"), (tr("Local file"), "local"), (tr("TikTok"), "douyin"), (tr("Bilibili"), "bilibili"), (tr("Xiaohongshu"), "xiaohongshu")]
-            saved_video_source_name = config.app.get("video_source", "pexels")
-            saved_video_source_index = [v[1] for v in video_sources].index(saved_video_source_name)
+            video_sources = [("🔥 Hybrid (Pexels + Pixabay)", "hybrid"), (tr("Pexels"), "pexels"), (tr("Pixabay"), "pixabay"), (tr("Local file"), "local"), (tr("TikTok"), "douyin"), (tr("Bilibili"), "bilibili"), (tr("Xiaohongshu"), "xiaohongshu")]
+            saved_video_source_name = config.app.get("video_source", "hybrid")
+            saved_video_source_index = [v[1] for v in video_sources].index(saved_video_source_name) if saved_video_source_name in [v[1] for v in video_sources] else 0
             selected_index = st.selectbox(tr("Video Source"), options=range(len(video_sources)), format_func=lambda x: video_sources[x][0], index=saved_video_source_index)
             params.video_source = video_sources[selected_index][1]
             config.app["video_source"] = params.video_source

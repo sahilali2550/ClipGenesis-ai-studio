@@ -144,8 +144,19 @@ def render_quran_video():
                 key="q_font_script",
             )
 
-            video_sources = ["pexels", "pixabay", "local"]
-            video_source = st.selectbox("Background Source", video_sources, key="q_vsource")
+            video_sources = ["hybrid", "pexels", "pixabay", "local"]
+            video_source = st.selectbox(
+                "Background Source",
+                video_sources,
+                format_func=lambda x: {
+                    "hybrid": "🔥 Hybrid (Pexels + Pixabay Combined - Maximum Collection)",
+                    "pexels": "Pexels Only",
+                    "pixabay": "Pixabay Only",
+                    "local": "Local Video Files",
+                }.get(x, x),
+                index=0,
+                key="q_vsource"
+            )
 
             if video_source == "pexels":
                 pexels_key = st.text_input(

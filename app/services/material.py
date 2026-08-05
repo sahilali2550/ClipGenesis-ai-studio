@@ -18,22 +18,24 @@ _requested_count = 0
 _requested_count_lock = threading.Lock()
 
 
-def get_api_key(cfg_key: str):
+def get_api_key(cfg_key: str) -> str:
     api_keys = config.app.get(cfg_key)
     if not api_keys:
-        raise ValueError(
-            f"\n\n##### {cfg_key} is not set #####\n\nPlease set it in the config.toml file: {config.config_file}\n\n"
-            f"{utils.to_json(config.app)}"
-        )
+        logger.warning(f"API key for '{cfg_key}' is not configured.")
+        return ""
 
-    # if only one key is provided, return it
     if isinstance(api_keys, str):
-        return api_keys
+        key = api_keys
+    elif isinstance(api_keys, list) and api_keys:
+        global _requested_count
+        with _requested_count_lock:
+            _requested_count += 1
+            key = str(api_keys[_requested_count % len(api_keys)])
+    else:
+        return ""
 
-    global _requested_count
-    with _requested_count_lock:
-        _requested_count += 1
-        return api_keys[_requested_count % len(api_keys)]
+    key = key.replace("[", "").replace("]", "").replace("'", "").replace('"', "").strip()
+    return key
 
 
 def clear_video_cache(max_keep: int = 0):
@@ -326,7 +328,7 @@ def save_video(video_url: str, save_dir: str = "", search_term: str = "", thumbn
 def download_videos(
     task_id: str,
     search_terms: List[str],
-    source: str = "pexels",
+    source: str = "hybrid",
     video_aspect: VideoAspect = VideoAspect.portrait,
     video_contact_mode: VideoConcatMode = VideoConcatMode.random,
     audio_duration: float = 0.0,
@@ -341,20 +343,63 @@ def download_videos(
     # Group videos by search term for balanced sampling
     videos_by_term = {}
     found_duration = 0.0
-    search_videos = search_videos_pexels
-    if source == "pixabay":
-        search_videos = search_videos_pixabay
 
     # Global URL tracking to prevent duplicates across all search terms
     global_video_urls = set()
+    src_clean = (source or "hybrid").lower().strip()
     
     for search_term in search_terms:
-        video_items = search_videos(
-            search_term=search_term,
-            minimum_duration=max_clip_duration,
-            video_aspect=video_aspect,
-        )
-        logger.info(f"found {len(video_items)} videos for '{search_term}'")
+        video_items = []
+        
+        if src_clean in ["hybrid", "both", "all", "pexels_pixabay", "combined"]:
+            # 🔥 Hybrid Fetching: Fetch from Pexels AND Pixabay simultaneously for maximum collection!
+            items_pexels = search_videos_pexels(
+                search_term=search_term,
+                minimum_duration=max_clip_duration,
+                video_aspect=video_aspect,
+            )
+            items_pixabay = search_videos_pixabay(
+                search_term=search_term,
+                minimum_duration=max_clip_duration,
+                video_aspect=video_aspect,
+            )
+            video_items = items_pexels + items_pixabay
+            random.shuffle(video_items)
+            logger.info(f"🔥 Hybrid fetch for '{search_term}': {len(items_pexels)} Pexels + {len(items_pixabay)} Pixabay = {len(video_items)} combined videos")
+        elif src_clean == "pixabay":
+            items_pixabay = search_videos_pixabay(
+                search_term=search_term,
+                minimum_duration=max_clip_duration,
+                video_aspect=video_aspect,
+            )
+            if len(items_pixabay) < 3:
+                items_pexels = search_videos_pexels(
+                    search_term=search_term,
+                    minimum_duration=max_clip_duration,
+                    video_aspect=video_aspect,
+                )
+                video_items = items_pixabay + items_pexels
+                logger.info(f"Pixabay fetch ({len(items_pixabay)}) supplemented with Pexels ({len(items_pexels)}) for '{search_term}'")
+            else:
+                video_items = items_pixabay
+                logger.info(f"Pixabay found {len(video_items)} videos for '{search_term}'")
+        else: # Pexels mode
+            items_pexels = search_videos_pexels(
+                search_term=search_term,
+                minimum_duration=max_clip_duration,
+                video_aspect=video_aspect,
+            )
+            if len(items_pexels) < 3:
+                items_pixabay = search_videos_pixabay(
+                    search_term=search_term,
+                    minimum_duration=max_clip_duration,
+                    video_aspect=video_aspect,
+                )
+                video_items = items_pexels + items_pixabay
+                logger.info(f"Pexels fetch ({len(items_pexels)}) supplemented with Pixabay ({len(items_pixabay)}) for '{search_term}'")
+            else:
+                video_items = items_pexels
+                logger.info(f"Pexels found {len(video_items)} videos for '{search_term}'")
 
         # Filter out duplicates and associate with search term
         unique_videos = []
