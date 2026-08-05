@@ -15,6 +15,7 @@ from loguru import logger
 from app.services import material, voice
 from app.utils import utils
 from app.config import config
+from app.models.schema import VideoAspect, VideoConcatMode
 
 
 def download_media_from_url(url: str, output_dir: str = "") -> dict:
@@ -107,17 +108,16 @@ def recreate_video_from_url(
         subtitle_lines = [line.strip() for line in custom_subtitle_text.split("\n") if line.strip()]
 
     # 3. Download Background Visual Clips
-    video_aspect = "9:16" if aspect_ratio == "portrait" else "16:9"
-    background_paths = material.download_videos(
+    video_aspect_enum = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
+    bg_paths_str = material.download_videos(
         task_id=f"url_{int(time.time())}",
         search_terms=[background_theme],
-        video_aspect=video_aspect,
-        video_contact_mode="random",
+        video_aspect=video_aspect_enum,
+        video_contact_mode=VideoConcatMode.random,
         audio_duration=duration,
     )
-
-    bg_paths_str = [m.url if hasattr(m, 'url') else str(m) for m in background_paths]
-    bg_paths_str = [p for p in bg_paths_str if os.path.exists(p)]
+    # download_videos already returns List[str] file paths — filter to existing files only
+    bg_paths_str = [p for p in bg_paths_str if p and os.path.exists(p)]
 
     if not bg_paths_str:
         raise RuntimeError(f"No background clips found for theme '{background_theme}'")
