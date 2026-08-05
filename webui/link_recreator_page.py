@@ -37,14 +37,16 @@ def render_link_recreator_page():
             bg_theme = st.selectbox(
                 "Background Video Theme",
                 options=[
-                    "driving", "islamic", "rain", "nature", "galaxy"
+                    "kaaba", "mosque", "quran", "rain", "nature", "galaxy", "driving"
                 ],
                 format_func=lambda x: {
-                    "driving": "🚗 Driving POV (Rain/Road)",
-                    "islamic": "🕌 Islamic Sacred Sites (Kaaba/Mosque)",
-                    "rain": "🌧️ Rain & Storm ASMR",
-                    "nature": "🌌 Nature & Skies",
-                    "galaxy": "✨ Galaxy & Stars",
+                    "kaaba":   "🕋 Kaaba / Mecca (Islamic — No People)",
+                    "mosque":  "🕌 Mosque Interior Architecture",
+                    "quran":   "📖 Quran / Islamic Calligraphy",
+                    "rain":    "🌧️ Rain & Storm ASMR",
+                    "nature":  "🌿 Nature & Mountain Aerial",
+                    "galaxy":  "✨ Galaxy & Stars",
+                    "driving": "🚗 Driving POV / Road",
                 }.get(x, x),
                 key="url_bg_theme",
             )
