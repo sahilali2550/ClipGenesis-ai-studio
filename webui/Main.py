@@ -1,6 +1,9 @@
 import os
 import platform
 import sys
+import warnings
+warnings.filterwarnings("ignore", message=".*torch.*")
+warnings.filterwarnings("ignore", message=".*no running event loop.*")
 from uuid import uuid4
 import streamlit as st
 from loguru import logger
