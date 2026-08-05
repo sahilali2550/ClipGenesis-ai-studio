@@ -57,6 +57,34 @@ def render_quran_video():
             ayah_count = to_ayah - from_ayah + 1
             st.caption(f"📊 مجموعی Ayahs: {ayah_count}")
 
+        # ── Live Quran Text Preview Box ───────────────────────────────────────
+        with st.container(border=True):
+            st.markdown("#### 📜 Live Arabic & Translation Preview")
+            try:
+                preview_arabic = quran_api.get_ayahs_arabic(surah_num, from_ayah, min(from_ayah + 1, to_ayah))
+                preview_trans = quran_api.get_translations(surah_num, from_ayah, min(from_ayah + 1, to_ayah), "ur.jalandhry")
+
+                if preview_arabic:
+                    ar_txt = " ".join([a.get("arabic", "") for a in preview_arabic])
+                    tr_txt = " ".join([preview_trans.get(a.get("ayah"), "") for a in preview_arabic])
+                    st.markdown(
+                        f"""
+                        <div style="background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.25); border-radius: 12px; padding: 16px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #FFD700; line-height: 1.8; margin-bottom: 10px;">
+                                {ar_txt}
+                            </div>
+                            <div style="font-size: 0.95rem; color: #E8E0D8;">
+                                <b>اردو ترجمہ:</b> {tr_txt}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.info("🔄 Live text loading...")
+            except Exception as pe:
+                st.caption(f"Text preview unavailable: {pe}")
+
         # ── Reciter ───────────────────────────────────────────────────────────
         with st.container(border=True):
             st.markdown("#### 🎙️ Reciter (قاری)")
@@ -104,6 +132,17 @@ def render_quran_video():
                 index=0, key="q_aspect",
             )
             video_aspect = "9:16" if "9:16" in aspect else "16:9"
+
+            font_script = st.selectbox(
+                "🔤 Arabic Font Style / Script",
+                options=[
+                    "🕋 Uthmanic Hafs (Saudi / Madina Mushaf)",
+                    "🇵🇰 Indo-Pak / Jameel Noori Nastaleeq (Pakistani)",
+                    "🌟 Kufic Modern Reel Style",
+                ],
+                index=0,
+                key="q_font_script",
+            )
 
             video_sources = ["pexels", "pixabay", "local"]
             video_source = st.selectbox("Background Source", video_sources, key="q_vsource")

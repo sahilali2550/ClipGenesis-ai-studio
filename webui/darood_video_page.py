@@ -30,8 +30,29 @@ def render_darood_video_page():
                 st.info(f"✨ **Today's Selection**: {selected_darood['title']}\n\n*{selected_darood['benefit']}*")
             else:
                 darood_titles = [d["title"] for d in darood_catalog]
-                chosen_title = st.selectbox("Select Darood Shareef", options=darood_titles, index=0)
+                chosen_title = st.selectbox("Select Darood Shareef / Custom Text", options=darood_titles, index=0)
                 selected_darood = next(d for d in darood_catalog if d["title"] == chosen_title)
+
+            # ── Option to Add Custom Darood / Islamic Text ──────────────────────
+            with st.expander("➕ Add New Darood Shareef or Custom Islamic Text", expanded=False):
+                with st.form("add_custom_darood_form", clear_on_submit=True):
+                    c_title = st.text_input("Title / Name (e.g., درoodِ سلام)", placeholder="Darood Name")
+                    c_arabic = st.text_area("Arabic Text (عربی متن)", placeholder="اَللّٰهُمَّ صَلِّ عَلٰى مُحَمَّدٍ...", height=80)
+                    c_urdu = st.text_area("Urdu Translation (اردو ترجمہ)", placeholder="اے اللہ! حضرت محمدﷺ پر درود نازل فرما...", height=70)
+                    c_benefit = st.text_input("Benefit / Note (فضیلت یا نوٹ)", placeholder="خاص درود شریف")
+                    submitted = st.form_submit_button("💾 Save to Collection")
+                    if submitted:
+                        if c_title.strip() and c_arabic.strip():
+                            darood_service.add_custom_darood(
+                                title=c_title,
+                                arabic=c_arabic,
+                                urdu=c_urdu,
+                                benefit=c_benefit,
+                            )
+                            st.success(f"✅ Added '{c_title}' to collection!")
+                            st.rerun()
+                        else:
+                            st.error("⚠️ Title and Arabic Text are required!")
 
         # ── Arabic Preview Box ─────────────────────────────────────────────────
         with st.container(border=True):

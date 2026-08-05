@@ -110,16 +110,75 @@ def reshape_text_for_display(raw_text: str) -> str:
 
 
 def get_darood_list() -> list[dict]:
-    """Return all Darood items for UI selection."""
-    return DAROOD_CATALOG
+    """Return all Darood items for UI selection, merging built-in and offline JSON additions."""
+    items = list(DAROOD_CATALOG)
+    json_path = os.path.join(utils.root_dir(), "resource", "darood_data", "darood_collection.json")
+    if os.path.exists(json_path):
+        try:
+            import json
+            with open(json_path, "r", encoding="utf-8") as f:
+                offline_items = json.load(f)
+                existing_ids = {i["id"] for i in items}
+                for oi in offline_items:
+                    item_dict = {
+                        "id": oi.get("id", f"custom_{len(items)}"),
+                        "title": oi.get("name", oi.get("title", "Custom Darood")),
+                        "arabic": oi.get("arabic", ""),
+                        "urdu": oi.get("translation", oi.get("urdu", "")),
+                        "english": oi.get("english", ""),
+                        "benefit": oi.get("benefit", "خاص درود شریف"),
+                    }
+                    if item_dict["id"] not in existing_ids:
+                        items.append(item_dict)
+                        existing_ids.add(item_dict["id"])
+        except Exception as e:
+            logger.warning(f"Failed to load offline Darood collection JSON: {e}")
+    return items
+
+
+def add_custom_darood(title: str, arabic: str, urdu: str = "", english: str = "", benefit: str = "") -> dict:
+    """Dynamically add a new custom Darood / Islamic text to the collection."""
+    import json
+    darood_dir = os.path.join(utils.root_dir(), "resource", "darood_data")
+    os.makedirs(darood_dir, exist_ok=True)
+    json_path = os.path.join(darood_dir, "darood_collection.json")
+
+    item_id = f"custom_{int(datetime.datetime.now().timestamp())}"
+    new_entry = {
+        "id": item_id,
+        "name": title,
+        "title": title,
+        "arabic": arabic.strip(),
+        "translation": urdu.strip(),
+        "urdu": urdu.strip(),
+        "english": english.strip(),
+        "benefit": benefit.strip() or "خاص اسلامک متن",
+    }
+
+    current_data = []
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                current_data = json.load(f)
+        except Exception:
+            current_data = []
+
+    current_data.append(new_entry)
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(current_data, f, ensure_ascii=False, indent=2)
+
+    DAROOD_CATALOG.append(new_entry)
+    logger.info(f"➕ Added custom Darood entry: {title}")
+    return new_entry
 
 
 def get_darood_by_id(darood_id: str) -> dict:
     """Find specific Darood item by ID."""
-    for item in DAROOD_CATALOG:
+    all_items = get_darood_list()
+    for item in all_items:
         if item["id"] == darood_id:
             return item
-    return DAROOD_CATALOG[0]
+    return all_items[0] if all_items else DAROOD_CATALOG[0]
 
 
 def get_daily_rotating_darood() -> dict:
