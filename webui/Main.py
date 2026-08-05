@@ -21,6 +21,7 @@ from webui.ui_theme import (
 from webui.quran_video_page import render_quran_video
 from webui.voice_studio_page import render_voice_studio_page
 from webui.darood_video_page import render_darood_video_page
+from webui.link_recreator_page import render_link_recreator_page
 
 
 from app.config import config
@@ -1345,6 +1346,7 @@ PAGE_MAP = {
     "urdu": render_urdu_video,
     "quran": render_quran_video,
     "darood": render_darood_video_page,
+    "link_recreator": render_link_recreator_page,
     "templates": render_templates,
     "scripts": render_smart_script,
     "abtest": render_ab_testing,

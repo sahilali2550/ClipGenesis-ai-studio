@@ -766,6 +766,7 @@ PAGES = [
     {"icon": "🏠", "label": "Dashboard",     "key": "dashboard"},
     {"icon": "📖", "label": "Quran Video",   "key": "quran"},
     {"icon": "🕌", "label": "Darood Shareef", "key": "darood"},
+    {"icon": "🔗", "label": "Link Re-Creator", "key": "link_recreator"},
     {"icon": "🇵🇰", "label": "Urdu Video",   "key": "urdu"},
     {"icon": "📺", "label": "Single Video",  "key": "single"},
     {"icon": "📦", "label": "Batch Gen",     "key": "batch"},
