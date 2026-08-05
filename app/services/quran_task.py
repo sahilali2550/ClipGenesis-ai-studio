@@ -524,11 +524,8 @@ def _compose_video_ffmpeg(
     if valid_bg:
         try:
             log("🎬 Building normalized 30fps motion background track with 4-second scene switches...")
-            from moviepy.vfx import Loop
-            from moviepy.video.VideoClip import ColorClip
-            from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-            from moviepy.video.compositing.concatenate import concatenate_videoclips
-            from moviepy.video.io.VideoFileClip import VideoFileClip
+            from moviepy import concatenate_videoclips, VideoFileClip
+            from moviepy.video.fx.Loop import Loop
 
             v_clips = []
             curr_bg_t = 0.0

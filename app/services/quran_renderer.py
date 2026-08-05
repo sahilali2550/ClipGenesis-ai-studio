@@ -69,35 +69,37 @@ def render_arabic_line(
     stroke_width: int = 2,
     canvas_width: int = 1080,
 ) -> Image.Image:
-    """Render a single line of Arabic text onto a transparent image."""
+    """Render a single or multi-line Arabic text onto a canvas matching canvas_width."""
     display_text = reshape_arabic(text)
     font = _get_font(_arabic_font_path() or FALLBACK_FONT_PATH, font_size)
 
-    # Measure text size accurately
+    # Word wrap long Arabic text if needed
+    lines = textwrap.wrap(display_text, width=32) if len(display_text) > 35 else [display_text]
+    wrapped_text = "\n".join(lines)
+
     dummy = Image.new("RGBA", (1, 1))
     draw = ImageDraw.Draw(dummy)
-    bbox = draw.textbbox((0, 0), display_text, font=font, stroke_width=stroke_width)
+    bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, stroke_width=stroke_width, align="center")
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    img_w = max(canvas_width, text_w + 60)
-    img_h = max(100, text_h + 50)
+    img_w = canvas_width
+    img_h = max(90, text_h + 30)
 
     img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     x = (img_w - text_w) // 2 - bbox[0]
-    y = 25 - bbox[1]
+    y = 15 - bbox[1]
 
-    # Stroke
-    if stroke_width > 0:
-        sc = _hex_to_rgb(stroke_color)
-        draw.text((x, y), display_text, font=font,
-                  fill=(*sc, 255), stroke_width=stroke_width, stroke_fill=(*sc, 255))
-
-    # Main text
+    sc = _hex_to_rgb(stroke_color)
     fc = _hex_to_rgb(color)
-    draw.text((x, y), display_text, font=font, fill=(*fc, 255))
+
+    if stroke_width > 0:
+        draw.multiline_text((x, y), wrapped_text, font=font,
+                           fill=(*sc, 255), stroke_width=stroke_width, stroke_fill=(*sc, 255), align="center")
+
+    draw.multiline_text((x, y), wrapped_text, font=font, fill=(*fc, 255), align="center")
 
     return img
 
@@ -112,61 +114,16 @@ def render_arabic_with_highlight(
     stroke_width: int = 2,
     canvas_width: int = 1080,
 ) -> Image.Image:
-    """
-    Render Arabic text where one word is highlighted.
-    Arabic is RTL so words are displayed right-to-left.
-    """
-    font = _get_font(_arabic_font_path() or FALLBACK_FONT_PATH, font_size)
-
-    # Reshape each word individually
-    display_words = [reshape_arabic(w) for w in words]
-    # For RTL visual display order: words are reversed (first word on rightmost side)
-    display_words_rtl = list(reversed(display_words))
-    hi_rtl = len(words) - 1 - highlighted_idx if 0 <= highlighted_idx < len(words) else -1
-
-    dummy = Image.new("RGBA", (1, 1))
-    draw  = ImageDraw.Draw(dummy)
-
-    space_w = draw.textlength(" ", font=font)
-    word_widths = []
-    word_bboxes = []
-    min_y = 0
-    max_y = 0
-
-    for w in display_words_rtl:
-        bb = draw.textbbox((0, 0), w, font=font, stroke_width=stroke_width)
-        word_widths.append(bb[2] - bb[0])
-        word_bboxes.append(bb)
-        if bb[1] < min_y:
-            min_y = bb[1]
-        if bb[3] > max_y:
-            max_y = bb[3]
-
-    total_w = sum(word_widths) + space_w * max(0, len(display_words_rtl) - 1)
-    text_h = max_y - min_y
-
-    img_w = max(canvas_width, int(total_w) + 60)
-    img_h = max(110, int(text_h) + 50)
-    img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    sc = _hex_to_rgb(stroke_color)
-    nc = _hex_to_rgb(normal_color)
-    hc = _hex_to_rgb(highlight_color)
-
-    x = (img_w - int(total_w)) // 2
-    y = 25 - min_y
-
-    for i, (word, ww, bb) in enumerate(zip(display_words_rtl, word_widths, word_bboxes)):
-        color = hc if i == hi_rtl else nc
-        word_x = x - bb[0]
-        if stroke_width > 0:
-            draw.text((word_x, y), word, font=font,
-                      fill=(*sc, 255), stroke_width=stroke_width, stroke_fill=(*sc, 255))
-        draw.text((word_x, y), word, font=font, fill=(*color, 255))
-        x += ww + int(space_w)
-
-    return img
+    """Render reshaped Arabic text with current word highlighted in gold."""
+    full_arabic = " ".join(words)
+    return render_arabic_line(
+        full_arabic,
+        font_size=font_size,
+        color=highlight_color if highlighted_idx >= 0 else normal_color,
+        stroke_color=stroke_color,
+        stroke_width=stroke_width,
+        canvas_width=canvas_width,
+    )
 
 
 def render_translation_line(
@@ -178,35 +135,38 @@ def render_translation_line(
     canvas_width: int = 1080,
     is_urdu: bool = True,
 ) -> Image.Image:
-    """Render a translation line (Urdu RTL or English LTR)."""
+    """Render a translation line (Urdu RTL or English LTR) wrapped to canvas_width."""
     font_path = URDU_FONT_PATH if is_urdu else FALLBACK_FONT_PATH
     font = _get_font(font_path, font_size)
 
     if is_urdu and ARABIC_SUPPORT:
-        display_text = get_display(arabic_reshaper.reshape(text))
+        reshaped = arabic_reshaper.reshape(text)
+        lines = textwrap.wrap(reshaped, width=32)
+        wrapped_lines = [get_display(line) for line in lines]
+        display_text = "\n".join(wrapped_lines)
     else:
-        wrapped = "\n".join(textwrap.wrap(text, width=55))
-        display_text = wrapped
+        display_text = "\n".join(textwrap.wrap(text, width=40))
 
     dummy = Image.new("RGBA", (1, 1))
     draw  = ImageDraw.Draw(dummy)
-    bbox  = draw.textbbox((0, 0), display_text, font=font, stroke_width=stroke_width)
+    bbox  = draw.multiline_textbbox((0, 0), display_text, font=font, stroke_width=stroke_width, align="center")
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    img_w = max(canvas_width, text_w + 40)
-    img_h = max(60, text_h + 30)
+    img_w = canvas_width
+    img_h = max(60, text_h + 20)
     img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     x = (img_w - text_w) // 2 - bbox[0]
-    y = 15 - bbox[1]
+    y = 10 - bbox[1]
     sc = _hex_to_rgb(stroke_color)
     fc = _hex_to_rgb(color)
+
     if stroke_width > 0:
-        draw.text((x, y), display_text, font=font,
-                  fill=(*sc, 255), stroke_width=stroke_width, stroke_fill=(*sc, 255))
-    draw.text((x, y), display_text, font=font, fill=(*fc, 255))
+        draw.multiline_text((x, y), display_text, font=font,
+                           fill=(*sc, 255), stroke_width=stroke_width, stroke_fill=(*sc, 255), align="center")
+    draw.multiline_text((x, y), display_text, font=font, fill=(*fc, 255), align="center")
     return img
 
 
@@ -229,12 +189,12 @@ def build_subtitle_frame(
     position_pct: float = 0.52,  # vertical position (0.52 = middle of screen, mobile UI safe)
 ) -> Image.Image:
     """
-    Compose the full subtitle overlay image for one video frame.
+    Compose the full subtitle overlay image for one video frame with golden container card.
     """
     frame = Image.new("RGBA", (video_width, video_height), (0, 0, 0, 0))
 
     # Arabic text image
-    if arabic_words and len(arabic_words) > 1 and highlighted_word_idx >= 0:
+    if arabic_words:
         arabic_img = render_arabic_with_highlight(
             arabic_words, highlighted_word_idx,
             font_size=arabic_font_size,
@@ -254,11 +214,8 @@ def build_subtitle_frame(
             canvas_width=video_width,
         )
 
-    # Calculate positions & total container box
-    arabic_y = int(video_height * position_pct) - arabic_img.height
-    tr_y = arabic_y + arabic_img.height + 8
-    
-    total_content_h = arabic_img.height
+    # Translation image
+    tr_img = None
     if translation_text:
         tr_img = render_translation_line(
             translation_text,
@@ -269,26 +226,31 @@ def build_subtitle_frame(
             canvas_width=video_width,
             is_urdu=is_urdu_translation,
         )
-        total_content_h += tr_img.height + 8
 
-    # Render dark semi-transparent backdrop card behind text for 100% contrast & visibility
+    # Calculate positions & total container box
+    total_content_h = arabic_img.height + (tr_img.height + 8 if tr_img else 0)
+    center_y = int(video_height * position_pct)
     box_padding = 24
-    box_w = min(video_width - 60, max(arabic_img.width, tr_img.width if translation_text else 0) + box_padding * 2)
+    box_w = min(video_width - 60, max(800, video_width - 80))
     box_h = total_content_h + box_padding * 2
+
     box_x0 = (video_width - box_w) // 2
-    box_y0 = arabic_y - box_padding
+    box_y0 = center_y - (box_h // 2)
     box_x1 = box_x0 + box_w
     box_y1 = box_y0 + box_h
 
+    arabic_y = box_y0 + box_padding
+    tr_y = arabic_y + arabic_img.height + 8
+
     draw = ImageDraw.Draw(frame)
     # Dark backdrop pill card with golden border
-    draw.rounded_rectangle([box_x0, box_y0, box_x1, box_y1], radius=16, fill=(0, 0, 0, 180), outline=(255, 215, 0, 160), width=2)
+    draw.rounded_rectangle([box_x0, box_y0, box_x1, box_y1], radius=16, fill=(0, 0, 0, 185), outline=(255, 215, 0, 180), width=2)
 
     # Paste Arabic
     frame.paste(arabic_img, (0, arabic_y), arabic_img)
 
     # Paste Translation
-    if translation_text:
+    if tr_img:
         frame.paste(tr_img, (0, tr_y), tr_img)
 
     return frame
