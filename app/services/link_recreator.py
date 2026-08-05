@@ -368,10 +368,8 @@ def _burn_subtitles_pil(
 
 def recreate_video_from_url(
     url: str,
-    custom_subtitle_text: str = "",
     background_theme: str = "islamic",
     aspect_ratio: str = "portrait",
-    show_box: bool = True,
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
@@ -379,7 +377,8 @@ def recreate_video_from_url(
     output_filename: str = "",
 ) -> str:
     """
-    Full workflow: download complete audio → get subtitles → safe background → burn subs → output.
+    Full workflow: download complete audio → Islamic-safe background → merge → clean output.
+    No text overlay, no subtitles, no channel name — pure audio + video only.
     """
     logger.info(f"🚀 Re-creating Reel from URL: {url}")
 
@@ -392,25 +391,7 @@ def recreate_video_from_url(
 
     logger.info(f"🎵 Audio duration: {duration:.1f}s  |  Title: {clean_title}")
 
-    # 2. Build subtitle lines
-    #    Priority: custom text > Arabic captions > cleaned title
-    if custom_subtitle_text.strip():
-        raw_lines = [l.strip() for l in custom_subtitle_text.split("\n") if l.strip()]
-    elif caption_text.strip():
-        # Chunk captions into ~4-word groups for readable subtitle pace
-        words = caption_text.split()
-        chunk = 4
-        raw_lines = [" ".join(words[i:i+chunk]) for i in range(0, len(words), chunk)]
-        if len(raw_lines) > 80:
-            raw_lines = raw_lines[:80]
-    else:
-        # Fallback: use clean title only (no hashtags, no stats)
-        raw_lines = [clean_title] if clean_title else ["Recitation"]
-
-    subtitle_segments = _build_segments(raw_lines, duration)
-    logger.info(f"📝 {len(subtitle_segments)} subtitle segment(s) prepared")
-
-    # 3. Islamic-safe background search terms
+    # 2. Islamic-safe background search terms
     search_terms = THEME_SEARCH_MAP.get(background_theme, [background_theme])
 
     # 4. Download background clips
@@ -460,26 +441,11 @@ def recreate_video_from_url(
         "-shortest", no_sub,
     ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # 7. Burn subtitles via PIL (Arabic/Urdu/English aware)
+    # 7. Output — clean video (audio + background, no text overlay)
     if not output_filename:
         output_filename = f"recreated_{ts}.mp4"
     final_output = os.path.join(output_dir, output_filename)
-
-    sub_ok = False
-    if subtitle_segments:
-        sub_ok = _burn_subtitles_pil(
-            input_video=no_sub,
-            output_video=final_output,
-            segments=subtitle_segments,
-            vid_w=vid_w,
-            vid_h=vid_h,
-            font_size=60,
-            y_frac=0.72,
-        )
-
-    if not sub_ok:
-        logger.warning("Subtitle burn skipped/failed → saving video without subtitles")
-        shutil.copy2(no_sub, final_output)
+    shutil.copy2(no_sub, final_output)
 
     # 8. Cleanup temp files
     for tmp in [list_txt, raw_bg, no_sub]:
