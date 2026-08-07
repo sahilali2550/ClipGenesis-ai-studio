@@ -282,14 +282,9 @@ def _render_subtitle_frame(
     box_x = (vid_w - box_w) // 2
     box_y = int(vid_h * y_frac) - box_h // 2
 
-    # Draw semi-transparent background box
     canvas = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
     draw   = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle(
-        [box_x, box_y, box_x + box_w, box_y + box_h],
-        radius=14,
-        fill=(0, 0, 0, 165),
-    )
+
 
     # Draw each text line
     for j, ln in enumerate(wrapped):
@@ -370,6 +365,7 @@ def recreate_video_from_url(
     url: str,
     background_theme: str = "islamic",
     aspect_ratio: str = "portrait",
+    video_source: str = "pexels",   # "pexels" | "pixabay" | "9router" | future sources
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
@@ -377,10 +373,11 @@ def recreate_video_from_url(
     output_filename: str = "",
 ) -> str:
     """
-    Full workflow: download complete audio → Islamic-safe background → merge → clean output.
-    No text overlay, no subtitles, no channel name — pure audio + video only.
+    Full workflow: download complete audio → background (Pexels/Pixabay/9Router AI) → merge.
+    No text, no subtitles, no watermarks — pure audio + video only.
+    New video sources can be added in the future by extending the routing block below.
     """
-    logger.info(f"🚀 Re-creating Reel from URL: {url}")
+    logger.info(f"🚀 Re-creating Reel from URL: {url}  |  source={video_source}")
 
     # 1. Download complete audio + metadata
     media_info   = download_media_from_url(url)
@@ -391,24 +388,61 @@ def recreate_video_from_url(
 
     logger.info(f"🎵 Audio duration: {duration:.1f}s  |  Title: {clean_title}")
 
-    # 2. Islamic-safe background search terms
+    # 2. Build search terms from theme map
     search_terms = THEME_SEARCH_MAP.get(background_theme, [background_theme])
 
-    # 4. Download background clips
+    # 3. Resolve dimensions
     vid_w, vid_h       = (1080, 1920) if aspect_ratio == "portrait" else (1920, 1080)
     video_aspect_enum  = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
 
-    bg_paths = material.download_videos(
-        task_id=f"url_{int(time.time())}",
-        search_terms=search_terms,
-        video_aspect=video_aspect_enum,
-        video_contact_mode=VideoConcatMode.random,
-        audio_duration=duration,
-    )
-    bg_paths = [p for p in bg_paths if p and os.path.exists(p)]
+    bg_paths = []
+    task_ts  = f"url_{int(time.time())}"
+
+    # ── 9Router AI Images + Motion branch ──────────────────────────────────
+    if video_source == "9router":
+        logger.info("🤖 Using 9Router AI Images + Motion for background")
+        try:
+            from app.services.ninerouter_image import generate_9router_videos
+            output_dir_9r = os.path.join(utils.root_dir(), "storage", "general_videos")
+            os.makedirs(output_dir_9r, exist_ok=True)
+
+            # Build AI-tailored prompts: theme keyword + video title context
+            theme_label = background_theme.replace("_", " ").title()
+            enriched_terms = [
+                f"{clean_title}, {t}, cinematic 4K, peaceful" for t in search_terms
+            ]
+            nine_paths = generate_9router_videos(
+                task_id=task_ts,
+                search_terms=enriched_terms,
+                video_aspect=video_aspect_enum,
+                audio_duration=duration,
+                task_dir=output_dir_9r,
+            )
+            bg_paths = [p for p in nine_paths if p and os.path.exists(p)]
+            if bg_paths:
+                logger.success(f"🤖 9Router produced {len(bg_paths)} background clip(s)")
+            else:
+                logger.warning("🤖 9Router returned no clips — falling back to Pexels")
+        except Exception as nine_err:
+            logger.warning(f"🤖 9Router error: {nine_err} — falling back to Pexels")
+
+    # ── Standard stock footage (Pexels / Pixabay) + 9Router fallback ──────────
+    # 💡 Future sources: add new elif branches here before the fallback block.
+    if not bg_paths:
+        _src = "pexels" if video_source not in ("pixabay",) else video_source
+        logger.info(f"Fetching stock background via source='{_src}' | terms={search_terms}")
+        bg_paths = material.download_videos(
+            task_id=task_ts,
+            search_terms=search_terms,
+            video_aspect=video_aspect_enum,
+            video_contact_mode=VideoConcatMode.random,
+            audio_duration=duration,
+            source=_src,
+        )
+        bg_paths = [p for p in bg_paths if p and os.path.exists(p)]
 
     if not bg_paths:
-        raise RuntimeError(f"No background clips found for theme '{background_theme}'")
+        raise RuntimeError(f"No background clips found for theme '{background_theme}' / source '{video_source}'")
 
     # 5. Concat background clips → raw BG video
     output_dir = os.path.join(utils.root_dir(), "storage", "general_videos")

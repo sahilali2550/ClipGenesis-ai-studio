@@ -41,6 +41,30 @@ def render_link_recreator_page():
         with st.container(border=True):
             st.markdown("#### ⚙️ Background Settings")
 
+            # ── Video Source (extensible — add new sources here in future) ───────
+            _src_options = [
+                ("🔥 Pexels (Stock 4K Video)",              "pexels"),
+                ("🌌 Pixabay (Stock Video)",                "pixabay"),
+                ("🤖 9Router AI Images + Motion (Free)",   "9router"),
+                # ── Add future sources here ──
+                # ("New Source Label", "source_key"),
+            ]
+            _src_sel = st.selectbox(
+                "Video Source / ویڈیو سورس",
+                options=range(len(_src_options)),
+                format_func=lambda x: _src_options[x][0],
+                index=0,
+                key="url_video_source",
+            )
+            video_source = _src_options[_src_sel][1]
+
+            if video_source == "9router":
+                st.info(
+                    "🤖 **9Router AI Images + Motion**: Video URL کے title/topic کے "
+                    "مطابق AI تصویر بنائی جائے گی۔ "
+                    "اگر 9Router offline ہو تو خود بخود Pexels پر واپس آجائے گا۔"
+                )
+
             bg_theme = st.selectbox(
                 "Background Video Theme",
                 options=["kaaba", "mosque", "quran", "rain", "nature", "galaxy", "driving"],
@@ -55,6 +79,11 @@ def render_link_recreator_page():
                 }.get(x, x),
                 key="url_bg_theme",
             )
+            if video_source == "9router":
+                st.caption(
+                    "💡 9Router کے ساتھ Theme بطور prompt hint کام کرے گا "
+                    "مثلاً kaaba theme کے ساتھ Islamic calligraphy prompt شامل ہوگا۔"
+                )
 
             aspect = st.selectbox(
                 "Video Aspect Ratio",
@@ -78,6 +107,7 @@ def render_link_recreator_page():
                             url=video_url.strip(),
                             background_theme=bg_theme,
                             aspect_ratio=aspect,
+                            video_source=video_source,
                         )
                         st.session_state["last_recreated_video"] = out_path
                         st.success("🎉 Reel re-created successfully!")

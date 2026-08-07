@@ -98,6 +98,24 @@ AYAH_COUNTS = {
 }
 
 
+_LOCAL_QURAN_DB = None
+
+def _load_local_quran_db() -> dict:
+    global _LOCAL_QURAN_DB
+    if _LOCAL_QURAN_DB is None:
+        try:
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))), "resource", "quran", "quran_database.json")
+            if os.path.exists(db_path):
+                import json
+                with open(db_path, "r", encoding="utf-8") as f:
+                    _LOCAL_QURAN_DB = json.load(f)
+                logger.info(f"📖 Loaded {len(_LOCAL_QURAN_DB)} Quran verses from local DB")
+        except Exception as e:
+            logger.warning(f"Failed to load local Quran DB: {e}")
+            _LOCAL_QURAN_DB = {}
+    return _LOCAL_QURAN_DB or {}
+
+
 def get_surah_info(surah_number: int) -> dict:
     """Get Surah metadata."""
     return {
@@ -110,9 +128,25 @@ def get_surah_info(surah_number: int) -> dict:
 def get_ayahs_arabic(surah: int, from_ayah: int, to_ayah: int) -> list[dict]:
     """
     Fetch Arabic text for a range of ayahs.
-    Returns list of {"ayah": int, "arabic": str, "key": "surah:ayah"}
+    Tries local quran_database.json first, falls back to Quran.com API.
+    Returns list of {"ayah": int, "arabic": str, "key": "surah:ayah", "words": list[str]}
     """
     results = []
+    db = _load_local_quran_db()
+    if db:
+        for a in range(from_ayah, to_ayah + 1):
+            key = f"{surah}:{a}"
+            if key in db:
+                item = db[key]
+                results.append({
+                    "ayah": a,
+                    "arabic": item["arabic"],
+                    "key": key,
+                    "words": item.get("words", [w for w in item["arabic"].split() if w]),
+                })
+        if results:
+            return results
+
     try:
         url = f"{BASE_URL}/verses/by_chapter/{surah}"
         params = {
@@ -144,11 +178,22 @@ def get_translations(surah: int, from_ayah: int, to_ayah: int,
                      edition: str = "ur.jalandhry") -> dict:
     """
     Fetch translation for a range of ayahs.
+    Tries local quran_database.json first, falls back to Quran.com API.
     Returns dict {ayah_number: translation_text}
     """
     translations = {}
     if not edition:
         return translations
+
+    db = _load_local_quran_db()
+    if db:
+        for a in range(from_ayah, to_ayah + 1):
+            key = f"{surah}:{a}"
+            if key in db:
+                translations[a] = db[key].get("ur_jalandhry", "")
+        if translations:
+            return translations
+
     try:
         url = f"{BASE_URL}/verses/by_chapter/{surah}"
         params = {
@@ -164,13 +209,13 @@ def get_translations(surah: int, from_ayah: int, to_ayah: int,
             if from_ayah <= ayah_num <= to_ayah:
                 tr_list = v.get("translations", [])
                 if tr_list:
-                    # Strip HTML tags
                     import re
                     text = re.sub(r"<[^>]+>", "", tr_list[0].get("text", ""))
                     translations[ayah_num] = text
     except Exception as e:
         logger.error(f"Quran API error (translation): {e}")
     return translations
+
 
 
 def get_word_timings(surah: int, ayah: int, reciter_id: int = 7) -> list[dict]:

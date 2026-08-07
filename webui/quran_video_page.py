@@ -144,15 +144,16 @@ def render_quran_video():
                 key="q_font_script",
             )
 
-            video_sources = ["hybrid", "pexels", "pixabay", "local"]
+            video_sources = ["hybrid", "pexels", "pixabay", "9router", "local"]
             video_source = st.selectbox(
                 "Background Source",
                 video_sources,
                 format_func=lambda x: {
-                    "hybrid": "🔥 Hybrid (Pexels + Pixabay Combined - Maximum Collection)",
-                    "pexels": "Pexels Only",
-                    "pixabay": "Pixabay Only",
-                    "local": "Local Video Files",
+                    "hybrid":   "🔥 Hybrid (Pexels + Pixabay Combined - Maximum Collection)",
+                    "pexels":   "Pexels Only",
+                    "pixabay":  "Pixabay Only",
+                    "9router":  "🤖 9Router AI Images + Motion (Free)",
+                    "local":    "Local Video Files",
                 }.get(x, x),
                 index=0,
                 key="q_vsource"
@@ -164,14 +165,25 @@ def render_quran_video():
                     value=", ".join(config.app.get("pexels_api_keys", [])) if isinstance(config.app.get("pexels_api_keys"), list) else config.app.get("pexels_api_keys", ""),
                     type="password", key="q_pexels_key"
                 )
+                pixabay_key = ""
             elif video_source == "pixabay":
                 pixabay_key = st.text_input(
                     "Pixabay API Key",
                     value=config.app.get("pixabay_api_keys", ""),
                     type="password", key="q_pixabay_key"
                 )
+                pexels_key = ""
+            elif video_source == "9router":
+                st.info(
+                    "🤖 **9Router AI Images + Motion**: ہر Quran آیت کے لیے AI "
+                    "تصویر بنائی جائے گی اور Ken Burns zoom effect کے ساتھ animated کی جائے گی۔\n\n"
+                    "9Router آپ کے LLM Settings میں موجود base URL سے connect ہوگا۔ "
+                    "اگر offline ہو تو خود بخود Pexels پر واپس آجائے گا۔"
+                )
+                pexels_key = pixabay_key = ""
             else:
                 pexels_key = pixabay_key = ""
+
 
         # ── Channel Logo Watermark ──────────────────────────────────────────
         with st.container(border=True):

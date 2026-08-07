@@ -231,8 +231,8 @@ def create_dynamic_phrase_card(
         c_x1 = (width - card_w) // 2
         c_y1 = (height - card_h) // 2
         c_x2 = c_x1 + card_w
-        c_y2 = c_y1 + card_h
-        draw.rounded_rectangle([c_x1, c_y1, c_x2, c_y2], radius=24, fill=(0, 0, 0, 140), outline=(255, 215, 0, 180), width=2)
+        draw.rounded_rectangle([c_x1, c_y1, c_x2, c_y2], radius=24, fill=(0, 0, 0, 0), outline=(255, 215, 0, 180), width=2)
+
 
     # Active Spoken Arabic Phrase (Pure Arabic Calligraphy with Drop Shadow & Gold Glow)
     arabic_lines = textwrap.wrap(arabic_phrase, width=26)
@@ -360,49 +360,99 @@ def generate_darood_video(
 
         keywords_list = theme_keywords.get(background_type.lower(), theme_keywords["driving"])
         term = random.choice(keywords_list)
-        logger.info(f"Searching Pexels for theme '{background_type}' video: '{term}'")
 
         video_clip = None
-        try:
-            v_aspect = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
-            items = material.search_videos_pexels(term, minimum_duration=5, video_aspect=v_aspect)
-            if items:
-                v_clips = []
-                selected_items = items[:min(6, len(items))]
-                random.shuffle(selected_items)
-                curr_t = 0.0
 
-                for item_obj in selected_items:
-                    if curr_t >= duration:
-                        break
-                    v_path = material.save_video(item_obj.url, search_term=term)
-                    if os.path.exists(v_path) and os.path.getsize(v_path) > 5000:
-                        raw_c = VideoFileClip(v_path)
-                        sub_dur = min(4.0, raw_c.duration, max(1.0, duration - curr_t))
-                        c_trimmed = raw_c.subclipped(0, sub_dur)
+        # ── 9Router AI Images + Motion branch ────────────────────────────────
+        if background_type.lower() == "9router":
+            logger.info(f"🤖 Darood: using 9Router AI image generation for '{darood_item['title']}'")
+            try:
+                from app.services.ninerouter_image import generate_9router_image, image_to_kenburns_clip
+                import math as _math
+                import uuid as _uuid
 
-                        # Resize & Crop to exact (w, h)
-                        vw, vh = c_trimmed.size
-                        if vw != w or vh != h:
-                            scale = max(w / float(vw), h / float(vh))
-                            nw, nh = int(vw * scale), int(vh * scale)
-                            c_trimmed = c_trimmed.resized((nw, nh))
-                            cx, cy = (nw - w) // 2, (nh - h) // 2
-                            c_trimmed = c_trimmed.cropped(x1=cx, y1=cy, width=w, height=h)
+                darood_title_clean = darood_item.get("title", "Islamic Darood")
+                prompt = (
+                    f"Peaceful Islamic calligraphy, {darood_title_clean}, "
+                    "mosque interior golden light, spiritual ambiance, "
+                    "4K cinematic, highly detailed"
+                )
+                v_aspect = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
+                img_path = generate_9router_image(
+                    prompt=prompt,
+                    save_dir=os.path.join(output_dir, "9router_images"),
+                )
+                if img_path:
+                    # Build enough clips to cover the full recitation duration
+                    n_clips = max(1, _math.ceil(duration / 5.0))
+                    v_clips = []
+                    for _ in range(n_clips):
+                        clip_path = image_to_kenburns_clip(
+                            image_path=img_path,
+                            duration=min(5, duration),
+                            video_aspect=v_aspect,
+                            task_dir=os.path.join(output_dir, "9router_clips"),
+                        )
+                        if clip_path and os.path.exists(clip_path):
+                            raw_c = VideoFileClip(clip_path)
+                            v_clips.append(raw_c)
+                    if v_clips:
+                        full_concat = concatenate_videoclips(v_clips)
+                        if full_concat.duration < duration:
+                            full_concat = full_concat.with_effects([Loop(duration=duration)])
+                        else:
+                            full_concat = full_concat.subclipped(0, duration)
+                        video_clip = full_concat
+                        logger.success("🤖 9Router Darood background clip ready")
+                if video_clip is None:
+                    logger.warning("🤖 9Router returned no clip — falling back to Pexels")
+            except Exception as nine_err:
+                logger.warning(f"🤖 9Router Darood error: {nine_err} — falling back to Pexels")
 
-                        v_clips.append(c_trimmed)
-                        curr_t += sub_dur
+        # ── Standard Pexels background fetch (for all other themes + fallback) ─
+        if video_clip is None:
+            logger.info(f"Searching Pexels for theme '{background_type}' video: '{term}'")
+            try:
+                v_aspect = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
+                items = material.search_videos_pexels(term, minimum_duration=5, video_aspect=v_aspect)
+                if items:
+                    v_clips = []
+                    selected_items = items[:min(6, len(items))]
+                    random.shuffle(selected_items)
+                    curr_t = 0.0
 
-                if v_clips:
-                    # Loop concatenated clips sequence if needed to cover full duration
-                    full_concat = concatenate_videoclips(v_clips)
-                    if full_concat.duration < duration:
-                        full_concat = full_concat.with_effects([Loop(duration=duration)])
-                    else:
-                        full_concat = full_concat.subclipped(0, duration)
-                    video_clip = full_concat
-        except Exception as pexels_err:
-            logger.warning(f"Pexels video download fallback: {pexels_err}")
+                    for item_obj in selected_items:
+                        if curr_t >= duration:
+                            break
+                        v_path = material.save_video(item_obj.url, search_term=term)
+                        if os.path.exists(v_path) and os.path.getsize(v_path) > 5000:
+                            raw_c = VideoFileClip(v_path)
+                            sub_dur = min(4.0, raw_c.duration, max(1.0, duration - curr_t))
+                            c_trimmed = raw_c.subclipped(0, sub_dur)
+
+                            # Resize & Crop to exact (w, h)
+                            vw, vh = c_trimmed.size
+                            if vw != w or vh != h:
+                                scale = max(w / float(vw), h / float(vh))
+                                nw, nh = int(vw * scale), int(vh * scale)
+                                c_trimmed = c_trimmed.resized((nw, nh))
+                                cx, cy = (nw - w) // 2, (nh - h) // 2
+                                c_trimmed = c_trimmed.cropped(x1=cx, y1=cy, width=w, height=h)
+
+                            v_clips.append(c_trimmed)
+                            curr_t += sub_dur
+
+                    if v_clips:
+                        # Loop concatenated clips sequence if needed to cover full duration
+                        full_concat = concatenate_videoclips(v_clips)
+                        if full_concat.duration < duration:
+                            full_concat = full_concat.with_effects([Loop(duration=duration)])
+                        else:
+                            full_concat = full_concat.subclipped(0, duration)
+                        video_clip = full_concat
+            except Exception as pexels_err:
+                logger.warning(f"Pexels video download fallback: {pexels_err}")
+
 
         # Fallback to ColorClip if video search fails
         if video_clip is None:

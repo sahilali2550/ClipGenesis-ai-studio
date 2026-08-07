@@ -25,6 +25,8 @@ from webui.quran_video_page import render_quran_video
 from webui.voice_studio_page import render_voice_studio_page
 from webui.darood_video_page import render_darood_video_page
 from webui.link_recreator_page import render_link_recreator_page
+from webui.ai_image_studio_page import render_ai_image_studio_page
+
 
 
 from app.config import config
@@ -87,6 +89,8 @@ for k, v in [
     ("preview_video", None),
     ("preview_audio", None),
     ("preview_title", "Preview"),
+    # 9Router video source setting (persists across pages)
+    ("settings_video_source", config.app.get("video_source", "pexels")),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -181,13 +185,23 @@ def build_video_params(**kwargs):
 # DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
 def render_dashboard():
-    # ── Live Storage Data Scanner ─────────────────────────────────────
+    # ── Live Storage & System Data Scanner ─────────────────────────────
     try:
-        import glob, time
+        import glob, time, psutil
+        try:
+            import torch
+            gpu_status = f"CUDA ({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "CPU Mode"
+        except Exception:
+            gpu_status = "CPU Mode"
+
         root = utils.root_dir()
         storage = os.path.join(root, "storage")
 
-        # 1. Scan generated videos across section directories
+        # 1. System Metrics
+        cpu_usage = psutil.cpu_percent()
+        ram_usage = psutil.virtual_memory().percent
+
+        # 2. Scan generated videos across section directories
         quran_vids = glob.glob(os.path.join(storage, "quran_videos", "*.mp4"))
         darood_vids = glob.glob(os.path.join(storage, "darood_videos", "*.mp4"))
         gen_vids = glob.glob(os.path.join(storage, "general_videos", "*.mp4"))
@@ -211,20 +225,44 @@ def render_dashboard():
 
         recent_videos.sort(key=lambda x: x[0], reverse=True)
 
-        # 2. Scan Cache Videos
+        # 3. Scan Cache Videos
         cache_files = glob.glob(os.path.join(storage, "cache_videos", "*.mp4"))
         cache_entries = len(cache_files)
         cache_bytes = sum(os.path.getsize(f) for f in cache_files if os.path.exists(f))
         cache_mb = round(cache_bytes / (1024 * 1024), 1)
 
-        # 3. Queue status
+        # 4. Queue status
         tasks_dir = os.path.join(storage, "tasks")
         task_folders = [d for d in os.listdir(tasks_dir) if os.path.isdir(os.path.join(tasks_dir, d))] if os.path.exists(tasks_dir) else []
         total_tasks = max(total_videos, len(task_folders))
         done_tasks = total_videos
         active_tasks = max(0, len(task_folders) - total_videos)
 
-        # ── KPI Cards ────────────────────────────────────────────────────
+        # ── 1. System Status Panel ─────────────────────────────────────
+        st.markdown(
+            '<div style="margin:12px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '💻 System Status & Resource Health</div>',
+            unsafe_allow_html=True,
+        )
+        sys_cols = st.columns(4)
+        sys_metrics = [
+            (sys_cols[0], "🌐", "Backend", "Online", "#00E5A0"),
+            (sys_cols[1], "🎮", "GPU Status", gpu_status, "#FFB347"),
+            (sys_cols[2], "💻", "CPU Usage", f"{cpu_usage}%", "#FF6B35" if cpu_usage > 85 else "#00E5A0"),
+            (sys_cols[3], "🧠", "RAM Usage", f"{ram_usage}%", "#FF6B35" if ram_usage > 85 else "#00E5A0"),
+        ]
+        for col, icon, label, val, color in sys_metrics:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'padding:16px;text-align:center;">'
+                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.2rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── 2. KPI Cards ──────────────────────────────────────────────
         render_kpi_cards([
             {"value": str(total_videos), "label": "Videos Generated", "delta": "all time", "delta_dir": "up"},
             {"value": str(today_count),  "label": "Today",            "delta": f"+{today_count} new", "delta_dir": "up"},
@@ -232,15 +270,44 @@ def render_dashboard():
             {"value": f"{total_videos * 850:,}",  "label": "LLM Tokens",  "delta": "approx"},
         ])
 
-        # ── Batch Queue Section ──────────────────────────────────────
+        # ── 3. Active AI Engine Providers ──────────────────────────────
         st.markdown(
-            '<div style="margin:28px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '⚡ Batch Queue Status</div>',
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '🤖 AI Engines & Production Providers</div>',
+            unsafe_allow_html=True,
+        )
+        ai_cols = st.columns(4)
+        llm_provider = config.app.get("llm_provider", "openai/gemini")
+        tts_provider = config.app.get("tts_provider", "edge-tts / azure")
+        video_src = st.session_state.get("settings_video_source", config.app.get("video_source", "pexels"))
+        sub_provider = config.app.get("subtitle_provider", "edge / whisper")
+
+        ai_items = [
+            (ai_cols[0], "🧠", "LLM Provider", llm_provider),
+            (ai_cols[1], "🎙️", "TTS Engine", tts_provider),
+            (ai_cols[2], "🎞️", "Video Source", video_src),
+            (ai_cols[3], "📝", "Subtitle Engine", sub_provider),
+        ]
+        for col, icon, label, val in ai_items:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.2);border-radius:10px;'
+                f'padding:14px;text-align:center;">'
+                f'<div style="font-size:1.2rem;margin-bottom:2px">{icon}</div>'
+                f'<div style="font-size:1.0rem;font-weight:700;color:#FFFFFF">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── 4. Batch Queue Section ────────────────────────────────────
+        st.markdown(
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '⚡ Task Queue Status</div>',
             unsafe_allow_html=True,
         )
         q_cols = st.columns(5)
         q_labels = [("Total", "📊", total_tasks), ("Pending", "⏳", 0),
-                    ("Active", "🔥", active_tasks), ("Done", "✅", done_tasks),
+                    ("Running", "🔥", active_tasks), ("Completed", "✅", done_tasks),
                     ("Failed", "❌", 0)]
         for col, (label, icon, val) in zip(q_cols, q_labels):
             col.markdown(
@@ -253,10 +320,10 @@ def render_dashboard():
                 unsafe_allow_html=True,
             )
 
-        # ── Cache Stats Section ──────────────────────────────────────
+        # ── 5. Cache Stats Section ───────────────────────────────────
         st.markdown(
-            '<div style="margin:28px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '💾 Smart Cache Analytics</div>',
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '💾 Cache Analytics</div>',
             unsafe_allow_html=True,
         )
         cc1, cc2, cc3 = st.columns(3)
@@ -268,18 +335,18 @@ def render_dashboard():
         for col, icon, label, val, color in cache_items:
             col.markdown(
                 f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
-                f'padding:20px;text-align:center;">'
-                f'<div style="font-size:1.6rem;margin-bottom:6px">{icon}</div>'
-                f'<div style="font-size:1.8rem;font-weight:800;color:{color}">{val}</div>'
-                f'<div style="font-size:0.8rem;color:#8A7F78;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">{label}</div>'
+                f'padding:18px;text-align:center;">'
+                f'<div style="font-size:1.5rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.6rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-        # ── Recent Generated Videos Gallery ────────────────────────────
+        # ── 6. Recent Generated Videos Gallery ────────────────────────
         st.markdown(
-            '<div style="margin:28px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '🎬 Recent Generated Videos</div>',
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '🎬 Recent Generated Outputs</div>',
             unsafe_allow_html=True,
         )
         if recent_videos:
@@ -383,7 +450,15 @@ def _wizard_script():
 
 def _wizard_media():
     st.markdown("### Step 3: Video Source & Concatenation")
-    video_sources = [("🔥 Hybrid (Pexels + Pixabay)", "hybrid"), ("Pexels", "pexels"), ("Pixabay", "pixabay"), ("Local Files", "local"), ("TikTok", "douyin"), ("Bilibili", "bilibili")]
+    video_sources = [
+        ("🔥 Hybrid (Pexels + Pixabay)", "hybrid"),
+        ("Pexels", "pexels"),
+        ("Pixabay", "pixabay"),
+        ("🤖 9Router AI Images + Motion", "9router"),  # 9Router AI source
+        ("Local Files", "local"),
+        ("TikTok", "douyin"),
+        ("Bilibili", "bilibili"),
+    ]
     saved_source = config.app.get("video_source", "hybrid")
     src_idx = [v[1] for v in video_sources].index(saved_source) if saved_source in [v[1] for v in video_sources] else 0
     sel = st.selectbox("Video Source", options=range(len(video_sources)), format_func=lambda x: video_sources[x][0], index=src_idx, key="wiz_src")
@@ -600,7 +675,16 @@ def render_single_video():
         with st.container(border=True):
             st.write(tr("Video Settings"))
             video_concat_modes = [(tr("Sequential"), "sequential"), (tr("Random"), "random"), (tr("Semantic Text Alignment"), "semantic")]
-            video_sources = [("🔥 Hybrid (Pexels + Pixabay)", "hybrid"), (tr("Pexels"), "pexels"), (tr("Pixabay"), "pixabay"), (tr("Local file"), "local"), (tr("TikTok"), "douyin"), (tr("Bilibili"), "bilibili"), (tr("Xiaohongshu"), "xiaohongshu")]
+            video_sources = [
+                ("🔥 Hybrid (Pexels + Pixabay)", "hybrid"),
+                (tr("Pexels"), "pexels"),
+                (tr("Pixabay"), "pixabay"),
+                ("🤖 9Router AI Images + Motion", "9router"),  # 9Router AI source
+                (tr("Local file"), "local"),
+                (tr("TikTok"), "douyin"),
+                (tr("Bilibili"), "bilibili"),
+                (tr("Xiaohongshu"), "xiaohongshu"),
+            ]
             saved_video_source_name = config.app.get("video_source", "hybrid")
             saved_video_source_index = [v[1] for v in video_sources].index(saved_video_source_name) if saved_video_source_name in [v[1] for v in video_sources] else 0
             selected_index = st.selectbox(tr("Video Source"), options=range(len(video_sources)), format_func=lambda x: video_sources[x][0], index=saved_video_source_index)
@@ -822,13 +906,18 @@ def render_single_video():
         if not params.video_subject and not params.video_script:
             st.error(tr("Video Script and Subject Cannot Both Be Empty"))
             st.stop()
-        if params.video_source not in ["pexels", "pixabay", "local"]:
+        # Valid sources: stock video sources + 9Router AI + local/social
+        _VALID_SOURCES = [
+            "pexels", "pixabay", "hybrid", "9router",
+            "local", "douyin", "bilibili", "xiaohongshu",
+        ]
+        if params.video_source not in _VALID_SOURCES:
             st.error(tr("Please Select a Valid Video Source"))
             st.stop()
-        if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
+        if params.video_source in ["pexels", "hybrid"] and not config.app.get("pexels_api_keys", ""):
             st.error(tr("Please Enter the Pexels API Key"))
             st.stop()
-        if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
+        if params.video_source in ["pixabay", "hybrid"] and not config.app.get("pixabay_api_keys", ""):
             st.error(tr("Please Enter the Pixabay API Key"))
             st.stop()
         if uploaded_files:
@@ -878,6 +967,36 @@ def render_single_video():
 def render_batch_generation():
     st.markdown('<div class="page-title">Batch Generation</div>', unsafe_allow_html=True)
     st.markdown("Generate multiple videos from a list of subjects.")
+
+    # ── Video Source Selector (persists to config) ───────────────────────────
+    with st.container(border=True):
+        st.write("**🎬 Video Source for Batch**")
+        _batch_src_options = [
+            ("🔥 Hybrid (Pexels + Pixabay)",          "hybrid"),
+            ("Pexels (Stock Video)",                   "pexels"),
+            ("Pixabay (Stock Video)",                  "pixabay"),
+            ("🤖 9Router AI Images + Motion (Free)",  "9router"),
+        ]
+        _batch_saved_src = config.app.get("video_source", "pexels")
+        _batch_src_idx = next(
+            (i for i, (_, v) in enumerate(_batch_src_options) if v == _batch_saved_src), 0
+        )
+        _batch_sel = st.selectbox(
+            "Batch Video Source",
+            options=range(len(_batch_src_options)),
+            format_func=lambda x: _batch_src_options[x][0],
+            index=_batch_src_idx,
+            key="batch_vsource_select",
+        )
+        _batch_video_source = _batch_src_options[_batch_sel][1]
+        config.app["video_source"] = _batch_video_source
+        if _batch_video_source == "9router":
+            st.info(
+                "🤖 **9Router AI Images + Motion**: ہر subject کے لیے AI تصویر بنائی جائے گی "
+                "اور Ken Burns zoom سے animated MP4 clip بنے گا۔ "
+                "9Router offline ہو تو خود بخود Pexels fallback ہوگا۔"
+            )
+
     batch_subjects_str = st.text_area(tr("Enter Video Subjects (one per line)"), height=200, help="One subject per line.")
     st.info(tr("Batch generation will use the voice, BGM, and subtitle settings configured in the Single Video tab."))
     batch_start_button = st.button(tr("Start Batch Generation"), key="batch_start_button")
@@ -1022,6 +1141,35 @@ def render_urdu_video():
         # 🏷️ Channel Logo Watermark
         u_logo_path, u_logo_pos, u_logo_sz, u_logo_op = render_logo_watermark_uploader(key_prefix="urdu")
 
+        # ── 9Router / Video Source Selector ─────────────────────────────────
+        with st.container(border=True):
+            st.write("**🎬 ویڈیو سورس (Background Source)**")
+            _urdu_src_options = [
+                ("🔥 Hybrid (Pexels + Pixabay)",          "hybrid"),
+                ("Pexels (Stock Video)",                   "pexels"),
+                ("Pixabay (Stock Video)",                  "pixabay"),
+                ("🤖 9Router AI Images + Motion (Free)",  "9router"),
+                ("Local Files",                            "local"),
+            ]
+            _urdu_saved_src = config.app.get("video_source", "pexels")
+            _urdu_src_idx = next(
+                (i for i, (_, v) in enumerate(_urdu_src_options) if v == _urdu_saved_src), 0
+            )
+            _urdu_sel = st.selectbox(
+                "ویڈیو بیک گراؤنڈ سورس",
+                options=range(len(_urdu_src_options)),
+                format_func=lambda x: _urdu_src_options[x][0],
+                index=_urdu_src_idx,
+                key="urdu_vsource_select",
+            )
+            urdu_video_source = _urdu_src_options[_urdu_sel][1]
+            if urdu_video_source == "9router":
+                st.info(
+                    "🤖 **9Router AI Images + Motion**: ہر keyword کے لیے AI تصویر "
+                    "بنائی جائے گی اور Ken Burns zoom effect سے animated کی جائے گی۔ "
+                    "اگر 9Router offline ہو تو خود بخود Pexels پر واپس آجائے گا۔"
+                )
+
     st.write("---")
     if st.button("🎬 اردو ویڈیو بنائیں", key="urdu_generate_btn", type="primary"):
         if not urdu_script.strip():
@@ -1033,6 +1181,7 @@ def render_urdu_video():
             video_terms=urdu_terms.strip() if urdu_terms.strip() else None,
             video_aspect=VideoAspect(urdu_aspect), video_concat_mode=VideoConcatMode.random,
             video_transition_mode=VideoTransitionMode.none, max_clip_duration=urdu_max_clip,
+            video_source=urdu_video_source,  # 9Router / pexels / pixabay / hybrid
             voice_name=selected_urdu_voice, voice_rate=urdu_voice_rate, voice_volume=urdu_voice_volume,
             bgm_type=urdu_bgm_type, bgm_volume=0.4, subtitle_enabled=urdu_subtitle_enabled,
             font_name=urdu_font_name, font_size=urdu_font_size, text_fore_color=urdu_font_color,
@@ -1331,13 +1480,100 @@ def render_settings():
                 config.app[f"{llm_provider}_model_name"] = model_name
         with config_panels[2]:
             st.write("Video Source Settings")
-            pexels_key = st.text_input("Pexels API Key", type="password", value=", ".join(config.app.get("pexels_api_keys", [])) if isinstance(config.app.get("pexels_api_keys"), list) else config.app.get("pexels_api_keys", ""))
-            if pexels_key:
-                config.app["pexels_api_keys"] = [k.strip() for k in pexels_key.split(",") if k.strip()]
-            pixabay_key = st.text_input("Pixabay API Key", type="password", value=", ".join(config.app.get("pixabay_api_keys", [])) if isinstance(config.app.get("pixabay_api_keys"), list) else config.app.get("pixabay_api_keys", ""))
-            if pixabay_key:
-                config.app["pixabay_api_keys"] = [k.strip() for k in pixabay_key.split(",") if k.strip()]
-            
+
+            # ── Default Video Source Mode Selector ─────────────────────────
+            _src_options = [
+                ("Pexels (Stock Video)",            "pexels"),
+                ("Pixabay (Stock Video)",           "pixabay"),
+                ("🔥 Hybrid (Pexels + Pixabay)",    "hybrid"),
+                ("🤖 9Router AI Images + Motion (Free)", "9router"),
+            ]
+            _saved_src = config.app.get("video_source", "pexels")
+            _src_idx = next(
+                (i for i, (_, v) in enumerate(_src_options) if v == _saved_src),
+                0,
+            )
+            _sel_src = st.selectbox(
+                "Default Video Source Mode",
+                options=range(len(_src_options)),
+                format_func=lambda x: _src_options[x][0],
+                index=_src_idx,
+                key="settings_src_selectbox",
+                help="Sets the default source used when generating videos. Can be overridden per-video in the Single Video tab.",
+            )
+            _chosen_src = _src_options[_sel_src][1]
+            config.app["video_source"] = _chosen_src
+            st.session_state["settings_video_source"] = _chosen_src
+
+            st.markdown("---")
+
+            # ── Pexels API Key (shown for pexels / hybrid) ─────────────────
+            if _chosen_src in ["pexels", "hybrid"]:
+                pexels_key = st.text_input(
+                    "Pexels API Key",
+                    type="password",
+                    value=(", ".join(config.app.get("pexels_api_keys", []))
+                           if isinstance(config.app.get("pexels_api_keys"), list)
+                           else config.app.get("pexels_api_keys", "")),
+                )
+                if pexels_key:
+                    config.app["pexels_api_keys"] = [k.strip() for k in pexels_key.split(",") if k.strip()]
+
+            # ── Pixabay API Key (shown for pixabay / hybrid) ───────────────
+            if _chosen_src in ["pixabay", "hybrid"]:
+                pixabay_key = st.text_input(
+                    "Pixabay API Key",
+                    type="password",
+                    value=(", ".join(config.app.get("pixabay_api_keys", []))
+                           if isinstance(config.app.get("pixabay_api_keys"), list)
+                           else config.app.get("pixabay_api_keys", "")),
+                )
+                if pixabay_key:
+                    config.app["pixabay_api_keys"] = [k.strip() for k in pixabay_key.split(",") if k.strip()]
+
+            # ── 9Router AI Settings (shown only when 9router is selected) ──
+            if _chosen_src == "9router":
+                st.info(
+                    "🤖 **9Router AI Images + Motion** generates unique AI images for each "
+                    "video keyword, then animates them with a smooth Ken Burns zoom effect.\n\n"
+                    "Requires 9Router running at the URL configured in **LLM Settings** "
+                    "(openai_base_url). If 9Router is offline, the pipeline automatically "
+                    "falls back to Pexels stock footage."
+                )
+                _default_model = config.app.get("9router_image_model", "antigravity/imagen-3")
+                _model_input = st.text_input(
+                    "9Router Image Model",
+                    value=_default_model,
+                    key="settings_9router_model",
+                    help="Image generation model name used by 9Router (e.g. antigravity/imagen-3).",
+                )
+                if _model_input.strip():
+                    config.app["9router_image_model"] = _model_input.strip()
+
+            # Show keys for all sources regardless (read-only when not selected)
+            if _chosen_src == "9router":
+                with st.expander("📋 Stock Footage API Keys (used as fallback)", expanded=False):
+                    pexels_key_fb = st.text_input(
+                        "Pexels API Key (fallback)",
+                        type="password",
+                        value=(", ".join(config.app.get("pexels_api_keys", []))
+                               if isinstance(config.app.get("pexels_api_keys"), list)
+                               else config.app.get("pexels_api_keys", "")),
+                        key="settings_pexels_fb",
+                    )
+                    if pexels_key_fb:
+                        config.app["pexels_api_keys"] = [k.strip() for k in pexels_key_fb.split(",") if k.strip()]
+                    pixabay_key_fb = st.text_input(
+                        "Pixabay API Key (fallback)",
+                        type="password",
+                        value=(", ".join(config.app.get("pixabay_api_keys", []))
+                               if isinstance(config.app.get("pixabay_api_keys"), list)
+                               else config.app.get("pixabay_api_keys", "")),
+                        key="settings_pixabay_fb",
+                    )
+                    if pixabay_key_fb:
+                        config.app["pixabay_api_keys"] = [k.strip() for k in pixabay_key_fb.split(",") if k.strip()]
+
             st.markdown("---")
             if st.button("🧹 Clean Old Videos & Cache Memory", key="clean_cache_settings"):
                 from app.services.material import clear_video_cache
@@ -1362,6 +1598,7 @@ PAGE_MAP = {
     "quran": render_quran_video,
     "darood": render_darood_video_page,
     "link_recreator": render_link_recreator_page,
+    "ai_image_studio": render_ai_image_studio_page,
     "templates": render_templates,
     "scripts": render_smart_script,
     "abtest": render_ab_testing,

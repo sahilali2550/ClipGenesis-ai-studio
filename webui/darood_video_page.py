@@ -162,10 +162,11 @@ def render_darood_video_page():
             col_t1, col_t2 = st.columns(2)
             with col_t1:
                 theme_options = [
-                    ("driving", "🚗 Driving POV (Rain/Road)"),
-                    ("islamic", "🕌 Islamic Sacred Sites (Kaaba/Mosque)"),
-                    ("rain", "🌧️ Rain & Storm ASMR"),
-                    ("nature", "🌌 Nature & Skies"),
+                    ("driving",  "🚗 Driving POV (Rain/Road)"),
+                    ("islamic",  "🕌 Islamic Sacred Sites (Kaaba/Mosque)"),
+                    ("rain",     "🌧️ Rain & Storm ASMR"),
+                    ("nature",   "🌌 Nature & Skies"),
+                    ("9router",  "🤖 9Router AI Images + Motion (Free)"),
                 ]
                 theme_dict = {t[0]: t[1] for t in theme_options}
                 bg_theme = st.selectbox(
@@ -174,6 +175,12 @@ def render_darood_video_page():
                     format_func=lambda k: theme_dict.get(k, k),
                     key="darood_bg_theme_select",
                 )
+                if bg_theme == "9router":
+                    st.info(
+                        "🤖 **9Router AI Images + Motion**: Darood keyword کے مطابق AI "
+                        "تصویر بنی جائے گی اور Ken Burns animated کی جائے گی۔ "
+                        "اگر 9Router offline ہو تو Pexels fallback ہوگا۔"
+                    )
 
             with col_t2:
                 text_style_mode = st.radio(

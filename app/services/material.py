@@ -334,6 +334,30 @@ def download_videos(
     audio_duration: float = 0.0,
     max_clip_duration: int = 5,
 ) -> List[str]:
+    # ── 9Router AI Image Generation + Ken Burns Motion ────────────────────────
+    # Handled entirely by the ninerouter_image module to keep this function clean.
+    # Falls back to Pexels internally if 9Router is unavailable.
+    src_check = (source or "hybrid").lower().strip()
+    if src_check == "9router":
+        logger.info("🤖 Video source = 9router — delegating to ninerouter_image pipeline")
+        try:
+            from app.services.ninerouter_image import generate_9router_videos
+            return generate_9router_videos(
+                task_id=task_id,
+                search_terms=search_terms,
+                video_aspect=video_aspect,
+                audio_duration=audio_duration,
+                max_clip_duration=max_clip_duration,
+                fallback_source="pexels",
+            )
+        except Exception as nine_err:
+            logger.warning(
+                f"🤖 9Router pipeline raised an unexpected error: {nine_err}. "
+                "Falling back to Pexels stock footage."
+            )
+            source = "pexels"  # continue with pexels below
+    # ─────────────────────────────────────────────────────────────────────────
+
     # Purge old video cache and free RAM to ensure fresh downloads every time
     try:
         clear_video_cache()
