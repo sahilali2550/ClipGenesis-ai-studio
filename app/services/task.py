@@ -1,6 +1,7 @@
 import math
 import os.path
 import re
+from datetime import datetime
 from os import path
 
 from loguru import logger
@@ -387,6 +388,70 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
             shutil.copy(f_path, sec_path)
             saved_general_videos.append(sec_path)
             logger.info(f"📁 Video saved to dedicated section folder: {sec_path}")
+
+    # ── Project Output Management (STEP 5) ───────────────────────────
+    project_dir = path.join(utils.root_dir(), "storage", "projects", task_id)
+    os.makedirs(project_dir, exist_ok=True)
+
+    dest_video = path.join(project_dir, "video.mp4")
+    if final_video_paths and path.exists(final_video_paths[0]):
+        shutil.copy(final_video_paths[0], dest_video)
+
+    # Save Storyboard & Timeline JSON
+    try:
+        from storyboard.planner import create_storyboard_project
+        sb_project = create_storyboard_project(
+            topic=params.video_subject or "Untitled Video",
+            script=video_script or "",
+            template_id=getattr(params, "template_id", "youtube_short"),
+            brand_id=getattr(params, "brand_id", None)
+        )
+        with open(path.join(project_dir, "storyboard.json"), "w", encoding="utf-8") as f:
+            f.write(sb_project.model_dump_json(indent=2))
+        with open(path.join(project_dir, "timeline.json"), "w", encoding="utf-8") as f:
+            f.write(sb_project.timeline.model_dump_json(indent=2))
+    except Exception as e:
+        logger.warning(f"Could not save storyboard for project {task_id}: {e}")
+
+    # Generate Thumbnail Collection & copy primary thumbnail.jpg
+    dest_thumb = path.join(project_dir, "thumbnail.jpg")
+    try:
+        from thumbnail.manager import create_video_thumbnails
+        tb_collection = create_video_thumbnails(
+            source_video=dest_video if path.exists(dest_video) else final_video_paths[0],
+            title_text=params.video_subject or "ClipGenesis Output",
+            subtitle_text=video_script[:40] if video_script else "",
+            brand_id=getattr(params, "brand_id", None),
+            template_id=getattr(params, "template_id", "youtube_short"),
+            num_variants=3,
+            output_dir=project_dir
+        )
+        if tb_collection.variants and path.exists(tb_collection.variants[0].output_path):
+            shutil.copy(tb_collection.variants[0].output_path, dest_thumb)
+    except Exception as e:
+        logger.warning(f"Could not save thumbnail for project {task_id}: {e}")
+
+    # Save metadata.json
+    metadata = {
+        "task_id": task_id,
+        "video_subject": params.video_subject,
+        "video_script": video_script,
+        "video_terms": video_terms,
+        "voice_name": params.voice_name,
+        "video_aspect": str(params.video_aspect),
+        "video_concat_mode": str(params.video_concat_mode),
+        "video_source": params.video_source,
+        "template_id": getattr(params, "template_id", "youtube_short"),
+        "brand_id": getattr(params, "brand_id", None),
+        "created_at": datetime.now().isoformat(),
+        "project_dir": project_dir,
+        "video_path": dest_video if path.exists(dest_video) else final_video_paths[0],
+        "thumbnail_path": dest_thumb if path.exists(dest_thumb) else None
+    }
+    with open(path.join(project_dir, "metadata.json"), "w", encoding="utf-8") as f:
+        f.write(utils.to_json(metadata))
+
+    logger.success(f"📦 Saved complete project output folder -> {project_dir}")
 
     logger.success(
         f"task {task_id} finished, generated {len(final_video_paths)} videos."

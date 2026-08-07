@@ -1714,24 +1714,113 @@ def render_settings():
     st.caption("All settings are saved automatically to config.toml")
 
 
+def render_create_video_page():
+    st.markdown('<h2 style="color:#FF6B35;margin-bottom:12px;">🎬 Create AI Video</h2>', unsafe_allow_html=True)
+    sub_mode = st.radio(
+        "Production Mode",
+        options=["⚡ Video Wizard", "📖 Quran Studio", "🕌 Darood Studio", "📦 Batch Production", "🎙️ Voice Studio"],
+        horizontal=True,
+        key="create_video_mode"
+    )
+    st.markdown("---")
+    if "Wizard" in sub_mode:
+        render_video_wizard()
+    elif "Quran" in sub_mode:
+        render_quran_video()
+    elif "Darood" in sub_mode:
+        render_darood_video_page()
+    elif "Batch" in sub_mode:
+        render_batch_generation()
+    elif "Voice" in sub_mode:
+        render_voice_studio_page()
+
+
+def render_assets_page():
+    st.markdown('<h2 style="color:#FF6B35;margin-bottom:12px;">📁 Asset Library Manager</h2>', unsafe_allow_html=True)
+    from assets import scan_directory, search, get_asset_stats
+    
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown("#### Search Assets")
+        q = st.text_input("Asset Search Query (tags, filename, category)", placeholder="e.g. nature, bedding, ocean")
+        cat_filter = st.selectbox("Category Filter", options=["All", "image", "video", "audio", "voice"])
+        
+        type_param = None if cat_filter == "All" else cat_filter
+        results = search(query=q, category=type_param, limit=15)
+        
+        if results:
+            st.success(f"Found {len(results)} matching assets")
+            for item in results:
+                st.markdown(f"- 📄 **{item.filename}** (`{item.type}` | `{item.category}`) — `{item.path}`")
+        else:
+            st.info("No matching assets found in local library database.")
+
+    with col2:
+        st.markdown("#### Scanner & System Stats")
+        stats = get_asset_stats()
+        st.metric("Total Registered Assets", stats.get("total_assets", 0))
+        
+        scan_path = st.text_input("Directory to Scan", value=os.path.join(root_dir, "resource"))
+        if st.button("🔍 Scan Directory Now", use_container_width=True):
+            if os.path.exists(scan_path):
+                scanned = scan_directory(scan_path)
+                st.success(f"Scanned directory! Registered {len(scanned)} asset items.")
+                st.rerun()
+            else:
+                st.error("Directory path does not exist.")
+
+
+def render_projects_page():
+    st.markdown('<h2 style="color:#FF6B35;margin-bottom:12px;">📦 Project Outputs & Storyboards</h2>', unsafe_allow_html=True)
+    import glob, json
+    
+    projects_dir = os.path.join(root_dir, "storage", "projects")
+    project_folders = glob.glob(os.path.join(projects_dir, "*")) if os.path.exists(projects_dir) else []
+    
+    col_a, col_b = st.columns([1, 2])
+    with col_a:
+        st.markdown("#### Saved Projects")
+        st.metric("Total Project Folders", len(project_folders))
+        selected_folder = None
+        if not project_folders:
+            st.info("No saved projects found yet. Generate a video using Create Video!")
+        else:
+            folder_names = [os.path.basename(p) for p in project_folders]
+            selected_folder = st.selectbox("Select Project Folder", options=folder_names)
+            
+    with col_b:
+        if project_folders and selected_folder:
+            folder_path = os.path.join(projects_dir, selected_folder)
+            st.markdown(f"### Project Details: `{selected_folder}`")
+            
+            meta_path = os.path.join(folder_path, "metadata.json")
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    st.markdown(f"**Subject**: {meta.get('video_subject')}")
+                    st.markdown(f"**Script**: {meta.get('video_script')}")
+                    st.markdown(f"**Voice**: `{meta.get('voice_name')}` | **Template**: `{meta.get('template_id')}` | **Brand**: `{meta.get('brand_id')}`")
+                except Exception as e:
+                    st.warning(f"Could not read metadata: {e}")
+
+            v_path = os.path.join(folder_path, "video.mp4")
+            if os.path.exists(v_path):
+                st.video(v_path)
+            
+            t_path = os.path.join(folder_path, "thumbnail.jpg")
+            if os.path.exists(t_path):
+                st.image(t_path, caption="Primary Project Thumbnail", width=400)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE ROUTER  (must be after all render_* functions are defined)
 # ═══════════════════════════════════════════════════════════════════════════════
 PAGE_MAP = {
     "dashboard": render_dashboard,
-    "wizard": render_video_wizard,
-    "single": render_single_video,
-    "batch": render_batch_generation,
-    "voice": render_voice_trends,
-    "voicestudio": render_voice_studio_page,
-    "urdu": render_urdu_video,
-    "quran": render_quran_video,
-    "darood": render_darood_video_page,
-    "link_recreator": render_link_recreator_page,
-    "ai_image_studio": render_ai_image_studio_page,
-    "templates": render_templates,
-    "scripts": render_smart_script,
-    "abtest": render_ab_testing,
+    "create_video": render_create_video_page,
+    "assets": render_assets_page,
+    "projects": render_projects_page,
     "settings": render_settings,
 }
 

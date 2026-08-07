@@ -770,21 +770,11 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) label
 """
 
 PAGES = [
-    {"icon": "🏠", "label": "Dashboard",     "key": "dashboard"},
-    {"icon": "📖", "label": "Quran Video",   "key": "quran"},
-    {"icon": "🕌", "label": "Darood Shareef", "key": "darood"},
-    {"icon": "🔗", "label": "Link Re-Creator", "key": "link_recreator"},
-    {"icon": "🖼️", "label": "AI Image Studio", "key": "ai_image_studio"},
-    {"icon": "🇵🇰", "label": "Urdu Video",   "key": "urdu"},
-    {"icon": "📺", "label": "Single Video",  "key": "single"},
-    {"icon": "📦", "label": "Batch Gen",     "key": "batch"},
-    {"icon": "✨", "label": "Video Wizard",  "key": "wizard"},
-    {"icon": "🎛️", "label": "Voice Studio", "key": "voicestudio"},
-    {"icon": "🎙️", "label": "Voice & Trends","key": "voice"},
-    {"icon": "🎨", "label": "Templates",     "key": "templates"},
-    {"icon": "✍️", "label": "Smart Script",  "key": "scripts"},
-    {"icon": "🎯", "label": "A/B Testing",   "key": "abtest"},
-    {"icon": "⚙️", "label": "Settings",     "key": "settings"},
+    {"icon": "🏠", "label": "Dashboard Overview", "key": "dashboard"},
+    {"icon": "🎬", "label": "Create Video",        "key": "create_video"},
+    {"icon": "📁", "label": "Assets",              "key": "assets"},
+    {"icon": "📦", "label": "Projects",            "key": "projects"},
+    {"icon": "⚙️", "label": "Settings",            "key": "settings"},
 ]
 
 
