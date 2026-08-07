@@ -1,0 +1,51 @@
+{
+  "template_id": "youtube_short",
+  "name": "YouTube Short / Reel",
+  "description": "High-energy 9:16 portrait video template with bold subtitles and active Ken Burns motion.",
+  "category": "short_form",
+  "aspect_ratio": "9:16",
+  "video_source": "pexels",
+  "video_concat_mode": "random",
+  "video_transition_mode": "Shuffle",
+  "video_clip_duration": 4,
+  "intro": {
+    "enabled": false,
+    "duration": 2,
+    "text": "Welcome"
+  },
+  "outro": {
+    "enabled": true,
+    "duration": 3,
+    "text": "Subscribe for More!"
+  },
+  "logo": {
+    "path": "",
+    "position": "top_right",
+    "size": 120,
+    "opacity": 0.85
+  },
+  "watermark": {
+    "text": "@ClipGenesis",
+    "position": "bottom_right",
+    "color": "#FFFFFF",
+    "opacity": 0.7
+  },
+  "subtitle_style": {
+    "enabled": true,
+    "font_name": "MicrosoftYaHeiBold.ttc",
+    "font_size": 65,
+    "font_color": "#FFFF00",
+    "stroke_color": "#000000",
+    "stroke_width": 3.0,
+    "position": "bottom",
+    "enable_word_highlighting": true
+  },
+  "audio": {
+    "bgm_type": "random",
+    "bgm_volume": 0.2,
+    "enable_audio_ducking": true
+  },
+  "effects": {
+    "enable_ken_burns": true
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "template_id": "quran_short",
+  "name": "Quranic Recitation Video",
+  "description": "Elegant 9:16 portrait template designed for Islamic Recitation & Verses with golden calligraphy styling.",
+  "category": "islamic",
+  "aspect_ratio": "9:16",
+  "video_source": "9router",
+  "video_concat_mode": "sequential",
+  "video_transition_mode": "FadeIn",
+  "video_clip_duration": 6,
+  "intro": {
+    "enabled": false,
+    "duration": 2,
+    "text": "Bismillah"
+  },
+  "outro": {
+    "enabled": false,
+    "duration": 3,
+    "text": "SubhanAllah"
+  },
+  "logo": {
+    "path": "",
+    "position": "top_center",
+    "size": 100,
+    "opacity": 0.9
+  },
+  "watermark": {
+    "text": "ClipGenesis Islamic Studio",
+    "position": "bottom_center",
+    "color": "#FFD700",
+    "opacity": 0.8
+  },
+  "subtitle_style": {
+    "enabled": true,
+    "font_name": "arial.ttf",
+    "font_size": 55,
+    "font_color": "#FFFFFF",
+    "stroke_color": "#1A1A1A",
+    "stroke_width": 2.5,
+    "position": "bottom",
+    "enable_word_highlighting": false
+  },
+  "audio": {
+    "bgm_type": "none",
+    "bgm_volume": 0.0,
+    "enable_audio_ducking": false
+  },
+  "effects": {
+    "enable_ken_burns": true
+  }
+}

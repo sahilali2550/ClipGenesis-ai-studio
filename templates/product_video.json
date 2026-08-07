@@ -1,0 +1,51 @@
+{
+  "template_id": "product_video",
+  "name": "Commercial Product Video",
+  "description": "16:9 widescreen promo template for commercial products, features, and brand advertising.",
+  "category": "commercial",
+  "aspect_ratio": "16:9",
+  "video_source": "pexels",
+  "video_concat_mode": "semantic",
+  "video_transition_mode": "SlideIn",
+  "video_clip_duration": 5,
+  "intro": {
+    "enabled": true,
+    "duration": 2,
+    "text": "Introducing..."
+  },
+  "outro": {
+    "enabled": true,
+    "duration": 4,
+    "text": "Order Now at www.example.com"
+  },
+  "logo": {
+    "path": "",
+    "position": "top_left",
+    "size": 140,
+    "opacity": 0.95
+  },
+  "watermark": {
+    "text": "Official Product Promo",
+    "position": "bottom_right",
+    "color": "#00E5A0",
+    "opacity": 0.85
+  },
+  "subtitle_style": {
+    "enabled": true,
+    "font_name": "arial.ttf",
+    "font_size": 60,
+    "font_color": "#FFFFFF",
+    "stroke_color": "#000000",
+    "stroke_width": 2.0,
+    "position": "bottom",
+    "enable_word_highlighting": false
+  },
+  "audio": {
+    "bgm_type": "random",
+    "bgm_volume": 0.25,
+    "enable_audio_ducking": true
+  },
+  "effects": {
+    "enable_ken_burns": false
+  }
+}
