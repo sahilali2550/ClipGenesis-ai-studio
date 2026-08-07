@@ -296,6 +296,32 @@ def render_dashboard():
                 unsafe_allow_html=True,
             )
 
+        # ── Batch Generation Engine Panel ─────────────────────────────
+        st.markdown(
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '⚡ Batch Production Queue</div>',
+            unsafe_allow_html=True,
+        )
+        from batch import get_batch_stats
+        btc_stats = get_batch_stats()
+        btc_cols = st.columns(4)
+        btc_items = [
+            (btc_cols[0], "📑", "Active Batches", btc_stats.get("active_batches", 0), "#FF6B35"),
+            (btc_cols[1], "🎬", "Total Batch Videos", btc_stats.get("total_videos", 0), "#FFB347"),
+            (btc_cols[2], "✅", "Completed Videos", btc_stats.get("completed_videos", 0), "#00E5A0"),
+            (btc_cols[3], "⚠️", "Failed Videos", btc_stats.get("failed_videos", 0), "#FF4B4B" if btc_stats.get("failed_videos", 0) > 0 else "#8A7F78"),
+        ]
+        for col, icon, label, val, color in btc_items:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'padding:16px;text-align:center;">'
+                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.4rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         # ── 3. Active AI Engine Providers ──────────────────────────────
         st.markdown(
             '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
