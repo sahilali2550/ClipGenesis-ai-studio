@@ -27,9 +27,10 @@ def apply_brand_to_params(brand_input: Union[str, BrandKit, Dict[str, Any]], par
 
     logger.info(f"Applying Brand Kit: {kit.name} ({kit.brand_id})")
 
-    # Apply Logo identity
+    # Apply Logo identity (supports raw file path or Asset Library ID)
     if kit.logo_path:
-        params.logo_path = kit.logo_path
+        from assets import resolve_asset_path
+        params.logo_path = resolve_asset_path(kit.logo_path)
     params.logo_position = kit.logo_position
     params.logo_size = kit.logo_size
     params.logo_opacity = kit.logo_opacity

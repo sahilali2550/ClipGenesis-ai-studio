@@ -270,6 +270,32 @@ def render_dashboard():
             {"value": f"{total_videos * 850:,}",  "label": "LLM Tokens",  "delta": "approx"},
         ])
 
+        # ── Asset Library Inventory Panel ──────────────────────────────
+        st.markdown(
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '📦 Asset Library Inventory</div>',
+            unsafe_allow_html=True,
+        )
+        from assets import get_stats
+        ast_stats = get_stats()
+        ast_cols = st.columns(4)
+        ast_items = [
+            (ast_cols[0], "🗂️", "Total Assets", ast_stats.get("total", 0), "#FF6B35"),
+            (ast_cols[1], "🖼️", "Images", ast_stats.get("image", 0), "#FFB347"),
+            (ast_cols[2], "🎥", "Videos", ast_stats.get("video", 0), "#00E5A0"),
+            (ast_cols[3], "🎵", "Audio & Voices", ast_stats.get("audio", 0) + ast_stats.get("voice", 0), "#3B82F6"),
+        ]
+        for col, icon, label, val, color in ast_items:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'padding:16px;text-align:center;">'
+                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.4rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         # ── 3. Active AI Engine Providers ──────────────────────────────
         st.markdown(
             '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
