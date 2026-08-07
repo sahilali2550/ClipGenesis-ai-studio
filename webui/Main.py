@@ -322,6 +322,34 @@ def render_dashboard():
                 unsafe_allow_html=True,
             )
 
+        # ── Storyboard Engine Panel ───────────────────────────────────
+        st.markdown(
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '🎨 AI Storyboards & Production Plans</div>',
+            unsafe_allow_html=True,
+        )
+        from storyboard import get_storyboard_stats
+        sb_stats = get_storyboard_stats()
+        sb_cols = st.columns(4)
+        recent_list = sb_stats.get("recent_storyboards", [])
+        recent_title = recent_list[-1] if recent_list else "None"
+        sb_items = [
+            (sb_cols[0], "🎨", "Total Storyboards", sb_stats.get("total_storyboards", 0), "#FF6B35"),
+            (sb_cols[1], "🎬", "Total Scenes", sb_stats.get("total_scenes", 0), "#00E5A0"),
+            (sb_cols[2], "📋", "Recent Storyboard", recent_title[:15] + "..." if len(recent_title) > 15 else recent_title, "#FFB347"),
+            (sb_cols[3], "⚡", "Status", "Engine Ready", "#00E5A0"),
+        ]
+        for col, icon, label, val, color in sb_items:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'padding:16px;text-align:center;">'
+                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.1rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         # ── 3. Active AI Engine Providers ──────────────────────────────
         st.markdown(
             '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
