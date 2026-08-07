@@ -350,6 +350,34 @@ def render_dashboard():
                 unsafe_allow_html=True,
             )
 
+        # ── AI Thumbnail Generator Panel ─────────────────────────────
+        st.markdown(
+            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
+            '🖼️ AI Video Thumbnails</div>',
+            unsafe_allow_html=True,
+        )
+        from thumbnail import get_thumbnail_stats
+        tb_stats = get_thumbnail_stats()
+        tb_cols = st.columns(4)
+        recent_thumbs = tb_stats.get("recent_thumbnails", [])
+        latest_thumb = recent_thumbs[-1]["title"] if recent_thumbs else "None"
+        tb_items = [
+            (tb_cols[0], "🖼️", "Total Collections", tb_stats.get("total_collections", 0), "#FF6B35"),
+            (tb_cols[1], "📸", "Thumbnails Generated", tb_stats.get("total_thumbnails", 0), "#00E5A0"),
+            (tb_cols[2], "🏷️", "Recent Title", latest_thumb[:15] + "..." if len(latest_thumb) > 15 else latest_thumb, "#FFB347"),
+            (tb_cols[3], "✨", "Status", "Generator Ready", "#00E5A0"),
+        ]
+        for col, icon, label, val, color in tb_items:
+            col.markdown(
+                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'padding:16px;text-align:center;">'
+                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
+                f'<div style="font-size:1.1rem;font-weight:800;color:{color}">{val}</div>'
+                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         # ── 3. Active AI Engine Providers ──────────────────────────────
         st.markdown(
             '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
