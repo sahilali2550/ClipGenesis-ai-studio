@@ -6,6 +6,17 @@ warnings.filterwarnings("ignore", message=".*torch.*")
 warnings.filterwarnings("ignore", message=".*no running event loop.*")
 from uuid import uuid4
 import streamlit as st
+try:
+    import streamlit.watcher.local_sources_watcher as _lsw
+    _orig_get_module_paths = _lsw.get_module_paths
+    def _safe_get_module_paths(module):
+        try:
+            return _orig_get_module_paths(module)
+        except Exception:
+            return set()
+    _lsw.get_module_paths = _safe_get_module_paths
+except Exception:
+    pass
 from loguru import logger
 
 # ── ClipGenesis Premium UI Shell ─────────────────────────────────────────────
@@ -185,75 +196,42 @@ def build_video_params(**kwargs):
 # DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
 def render_dashboard():
-    # ── Live Storage & System Data Scanner ─────────────────────────────
+    # ── Always-visible page header ───────────────────────────────────────
+    st.markdown(
+        '<div style="padding:10px 0 18px 0;">'
+        '<span style="font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#FFB347);'
+        '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">'
+        '🏠 Dashboard Overview</span>'
+        '<span style="font-size:0.85rem;color:#8A7F78;margin-left:14px;">ClipGenesis AI Video Studio</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── 1. System Status ─────────────────────────────────────────────────
     try:
-        import glob, time, psutil
+        import psutil
         try:
             import torch
             gpu_status = f"CUDA ({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "CPU Mode"
         except Exception:
             gpu_status = "CPU Mode"
-
-        root = utils.root_dir()
-        storage = os.path.join(root, "storage")
-
-        # 1. System Metrics
         cpu_usage = psutil.cpu_percent()
         ram_usage = psutil.virtual_memory().percent
 
-        # 2. Scan generated videos across section directories
-        quran_vids = glob.glob(os.path.join(storage, "quran_videos", "*.mp4"))
-        darood_vids = glob.glob(os.path.join(storage, "darood_videos", "*.mp4"))
-        gen_vids = glob.glob(os.path.join(storage, "general_videos", "*.mp4"))
-        task_vids = glob.glob(os.path.join(storage, "tasks", "**", "*.mp4"), recursive=True)
-
-        all_videos = list(set(quran_vids + darood_vids + gen_vids + task_vids))
-        total_videos = len(all_videos)
-
-        today_str = time.strftime("%Y-%m-%d")
-        today_count = 0
-        recent_videos = []
-        for vpath in all_videos:
-            try:
-                mtime = os.path.getmtime(vpath)
-                vdate = time.strftime("%Y-%m-%d", time.localtime(mtime))
-                if vdate == today_str:
-                    today_count += 1
-                recent_videos.append((mtime, vpath))
-            except Exception:
-                pass
-
-        recent_videos.sort(key=lambda x: x[0], reverse=True)
-
-        # 3. Scan Cache Videos
-        cache_files = glob.glob(os.path.join(storage, "cache_videos", "*.mp4"))
-        cache_entries = len(cache_files)
-        cache_bytes = sum(os.path.getsize(f) for f in cache_files if os.path.exists(f))
-        cache_mb = round(cache_bytes / (1024 * 1024), 1)
-
-        # 4. Queue status
-        tasks_dir = os.path.join(storage, "tasks")
-        task_folders = [d for d in os.listdir(tasks_dir) if os.path.isdir(os.path.join(tasks_dir, d))] if os.path.exists(tasks_dir) else []
-        total_tasks = max(total_videos, len(task_folders))
-        done_tasks = total_videos
-        active_tasks = max(0, len(task_folders) - total_videos)
-
-        # ── 1. System Status Panel ─────────────────────────────────────
         st.markdown(
-            '<div style="margin:12px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '💻 System Status & Resource Health</div>',
+            '<div style="margin:0 0 10px 0;font-size:1rem;font-weight:700;color:#FF6B35;">💻 System Status</div>',
             unsafe_allow_html=True,
         )
         sys_cols = st.columns(4)
         sys_metrics = [
-            (sys_cols[0], "🌐", "Backend", "Online", "#00E5A0"),
-            (sys_cols[1], "🎮", "GPU Status", gpu_status, "#FFB347"),
-            (sys_cols[2], "💻", "CPU Usage", f"{cpu_usage}%", "#FF6B35" if cpu_usage > 85 else "#00E5A0"),
-            (sys_cols[3], "🧠", "RAM Usage", f"{ram_usage}%", "#FF6B35" if ram_usage > 85 else "#00E5A0"),
+            (sys_cols[0], "🌐", "Backend",    "Online",      "#00E5A0"),
+            (sys_cols[1], "🎮", "GPU Status", gpu_status,   "#FFB347"),
+            (sys_cols[2], "💻", "CPU Usage",  f"{cpu_usage}%", "#FF6B35" if cpu_usage > 85 else "#00E5A0"),
+            (sys_cols[3], "🧠", "RAM Usage",  f"{ram_usage}%", "#FF6B35" if ram_usage > 85 else "#00E5A0"),
         ]
         for col, icon, label, val, color in sys_metrics:
             col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'<div style="background:#1A1A1A;border:1px solid rgba(255,107,53,0.3);border-radius:10px;'
                 f'padding:16px;text-align:center;">'
                 f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
                 f'<div style="font-size:1.2rem;font-weight:800;color:{color}">{val}</div>'
@@ -261,33 +239,59 @@ def render_dashboard():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+    except Exception as e:
+        st.warning(f"⚠️ System metrics unavailable: {e}")
 
-        # ── 2. KPI Cards ──────────────────────────────────────────────
-        render_kpi_cards([
-            {"value": str(total_videos), "label": "Videos Generated", "delta": "all time", "delta_dir": "up"},
-            {"value": str(today_count),  "label": "Today",            "delta": f"+{today_count} new", "delta_dir": "up"},
-            {"value": f"{total_videos * 1450:,}", "label": "TTS Chars",   "delta": "total"},
-            {"value": f"{total_videos * 850:,}",  "label": "LLM Tokens",  "delta": "approx"},
-        ])
+    # ── 2. Video Production KPIs ─────────────────────────────────────────
+    try:
+        import glob, time, os as _os
+        from app.utils import utils as _utils
+        root = _utils.root_dir()
+        storage = _os.path.join(root, "storage")
+        quran_vids  = glob.glob(_os.path.join(storage, "quran_videos",  "*.mp4"))
+        darood_vids = glob.glob(_os.path.join(storage, "darood_videos", "*.mp4"))
+        gen_vids    = glob.glob(_os.path.join(storage, "general_videos","*.mp4"))
+        task_vids   = glob.glob(_os.path.join(storage, "tasks", "**", "*.mp4"), recursive=True)
+        all_videos  = list(set(quran_vids + darood_vids + gen_vids + task_vids))
+        total_videos = len(all_videos)
+        today_str  = time.strftime("%Y-%m-%d")
+        today_count = sum(
+            1 for vp in all_videos
+            if time.strftime("%Y-%m-%d", time.localtime(_os.path.getmtime(vp))) == today_str
+        )
 
-        # ── Asset Library Inventory Panel ──────────────────────────────
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '📦 Asset Library Inventory</div>',
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">📊 Video Production Stats</div>',
             unsafe_allow_html=True,
         )
+        render_kpi_cards([
+            {"value": str(total_videos),            "label": "Videos Generated", "delta": "all time",    "delta_dir": "up"},
+            {"value": str(today_count),             "label": "Today",            "delta": f"+{today_count} new", "delta_dir": "up"},
+            {"value": f"{total_videos * 1450:,}",  "label": "TTS Chars",        "delta": "total"},
+            {"value": f"{total_videos * 850:,}",   "label": "LLM Tokens",       "delta": "approx"},
+        ])
+    except Exception as e:
+        st.warning(f"⚠️ Video stats unavailable: {e}")
+
+    # ── 3. Asset Library ─────────────────────────────────────────────────
+    try:
         from assets import get_stats
         ast_stats = get_stats()
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">📁 Asset Library</div>',
+            unsafe_allow_html=True,
+        )
         ast_cols = st.columns(4)
-        ast_items = [
-            (ast_cols[0], "🗂️", "Total Assets", ast_stats.get("total", 0), "#FF6B35"),
-            (ast_cols[1], "🖼️", "Images", ast_stats.get("image", 0), "#FFB347"),
-            (ast_cols[2], "🎥", "Videos", ast_stats.get("video", 0), "#00E5A0"),
-            (ast_cols[3], "🎵", "Audio & Voices", ast_stats.get("audio", 0) + ast_stats.get("voice", 0), "#3B82F6"),
-        ]
-        for col, icon, label, val, color in ast_items:
+        for col, icon, label, val, color in [
+            (ast_cols[0], "🗂️", "Total Assets",    ast_stats.get("total", 0),  "#FF6B35"),
+            (ast_cols[1], "🖼️", "Images",          ast_stats.get("image", 0),  "#FFB347"),
+            (ast_cols[2], "🎥", "Videos",          ast_stats.get("video", 0),  "#00E5A0"),
+            (ast_cols[3], "🎵", "Audio & Voices",  ast_stats.get("audio", 0) + ast_stats.get("voice", 0), "#3B82F6"),
+        ]:
             col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'<div style="background:#1A1A1A;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
                 f'padding:16px;text-align:center;">'
                 f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
                 f'<div style="font-size:1.4rem;font-weight:800;color:{color}">{val}</div>'
@@ -295,25 +299,27 @@ def render_dashboard():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+    except Exception as e:
+        st.warning(f"⚠️ Asset stats unavailable: {e}")
 
-        # ── Batch Generation Engine Panel ─────────────────────────────
-        st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '⚡ Batch Production Queue</div>',
-            unsafe_allow_html=True,
-        )
+    # ── 4. Batch Production ───────────────────────────────────────────────
+    try:
         from batch import get_batch_stats
         btc_stats = get_batch_stats()
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">⚡ Batch Production Queue</div>',
+            unsafe_allow_html=True,
+        )
         btc_cols = st.columns(4)
-        btc_items = [
-            (btc_cols[0], "📑", "Active Batches", btc_stats.get("active_batches", 0), "#FF6B35"),
-            (btc_cols[1], "🎬", "Total Batch Videos", btc_stats.get("total_videos", 0), "#FFB347"),
-            (btc_cols[2], "✅", "Completed Videos", btc_stats.get("completed_videos", 0), "#00E5A0"),
-            (btc_cols[3], "⚠️", "Failed Videos", btc_stats.get("failed_videos", 0), "#FF4B4B" if btc_stats.get("failed_videos", 0) > 0 else "#8A7F78"),
-        ]
-        for col, icon, label, val, color in btc_items:
+        for col, icon, label, val, color in [
+            (btc_cols[0], "📑", "Active Batches",    btc_stats.get("active_batches",    0), "#FF6B35"),
+            (btc_cols[1], "🎬", "Total Batch Videos",btc_stats.get("total_videos",      0), "#FFB347"),
+            (btc_cols[2], "✅", "Completed Videos",  btc_stats.get("completed_videos",  0), "#00E5A0"),
+            (btc_cols[3], "⚠️", "Failed Videos",    btc_stats.get("failed_videos",     0), "#FF4B4B"),
+        ]:
             col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'<div style="background:#1A1A1A;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
                 f'padding:16px;text-align:center;">'
                 f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
                 f'<div style="font-size:1.4rem;font-weight:800;color:{color}">{val}</div>'
@@ -321,55 +327,29 @@ def render_dashboard():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+    except Exception as e:
+        st.warning(f"⚠️ Batch stats unavailable: {e}")
 
-        # ── Storyboard Engine Panel ───────────────────────────────────
-        st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '🎨 AI Storyboards & Production Plans</div>',
-            unsafe_allow_html=True,
-        )
+    # ── 5. Storyboard & Thumbnail Engine Status ───────────────────────────
+    try:
         from storyboard import get_storyboard_stats
+        from thumbnail import get_thumbnail_stats
         sb_stats = get_storyboard_stats()
-        sb_cols = st.columns(4)
-        recent_list = sb_stats.get("recent_storyboards", [])
-        recent_title = recent_list[-1] if recent_list else "None"
-        sb_items = [
-            (sb_cols[0], "🎨", "Total Storyboards", sb_stats.get("total_storyboards", 0), "#FF6B35"),
-            (sb_cols[1], "🎬", "Total Scenes", sb_stats.get("total_scenes", 0), "#00E5A0"),
-            (sb_cols[2], "📋", "Recent Storyboard", recent_title[:15] + "..." if len(recent_title) > 15 else recent_title, "#FFB347"),
-            (sb_cols[3], "⚡", "Status", "Engine Ready", "#00E5A0"),
-        ]
-        for col, icon, label, val, color in sb_items:
-            col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
-                f'padding:16px;text-align:center;">'
-                f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
-                f'<div style="font-size:1.1rem;font-weight:800;color:{color}">{val}</div>'
-                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-        # ── AI Thumbnail Generator Panel ─────────────────────────────
+        tb_stats = get_thumbnail_stats()
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '🖼️ AI Video Thumbnails</div>',
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">🎨 AI Production Engines</div>',
             unsafe_allow_html=True,
         )
-        from thumbnail import get_thumbnail_stats
-        tb_stats = get_thumbnail_stats()
-        tb_cols = st.columns(4)
-        recent_thumbs = tb_stats.get("recent_thumbnails", [])
-        latest_thumb = recent_thumbs[-1]["title"] if recent_thumbs else "None"
-        tb_items = [
-            (tb_cols[0], "🖼️", "Total Collections", tb_stats.get("total_collections", 0), "#FF6B35"),
-            (tb_cols[1], "📸", "Thumbnails Generated", tb_stats.get("total_thumbnails", 0), "#00E5A0"),
-            (tb_cols[2], "🏷️", "Recent Title", latest_thumb[:15] + "..." if len(latest_thumb) > 15 else latest_thumb, "#FFB347"),
-            (tb_cols[3], "✨", "Status", "Generator Ready", "#00E5A0"),
-        ]
-        for col, icon, label, val, color in tb_items:
+        eng_cols = st.columns(4)
+        for col, icon, label, val, color in [
+            (eng_cols[0], "🎨", "Storyboards",   sb_stats.get("total_storyboards", 0), "#FF6B35"),
+            (eng_cols[1], "🎬", "Total Scenes",  sb_stats.get("total_scenes",       0), "#FFB347"),
+            (eng_cols[2], "🖼️", "Thumbnails",    tb_stats.get("total_thumbnails",   0), "#00E5A0"),
+            (eng_cols[3], "⚡", "Engine Status", "Ready",                               "#00E5A0"),
+        ]:
             col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
+                f'<div style="background:#1A1A1A;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
                 f'padding:16px;text-align:center;">'
                 f'<div style="font-size:1.3rem;margin-bottom:4px">{icon}</div>'
                 f'<div style="font-size:1.1rem;font-weight:800;color:{color}">{val}</div>'
@@ -377,28 +357,30 @@ def render_dashboard():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+    except Exception as e:
+        st.warning(f"⚠️ Engine stats unavailable: {e}")
 
-        # ── 3. Active AI Engine Providers ──────────────────────────────
+    # ── 6. AI Providers ───────────────────────────────────────────────────
+    try:
+        from app.config import config as _cfg
+        llm_provider = _cfg.app.get("llm_provider", "openai/gemini")
+        tts_provider = _cfg.app.get("tts_provider", "edge-tts / azure")
+        video_src    = _cfg.app.get("video_source", "pexels")
+        sub_provider = _cfg.app.get("subtitle_provider", "whisper")
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '🤖 AI Engines & Production Providers</div>',
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">🤖 AI Engines & Providers</div>',
             unsafe_allow_html=True,
         )
         ai_cols = st.columns(4)
-        llm_provider = config.app.get("llm_provider", "openai/gemini")
-        tts_provider = config.app.get("tts_provider", "edge-tts / azure")
-        video_src = st.session_state.get("settings_video_source", config.app.get("video_source", "pexels"))
-        sub_provider = config.app.get("subtitle_provider", "edge / whisper")
-
-        ai_items = [
-            (ai_cols[0], "🧠", "LLM Provider", llm_provider),
-            (ai_cols[1], "🎙️", "TTS Engine", tts_provider),
-            (ai_cols[2], "🎞️", "Video Source", video_src),
+        for col, icon, label, val in [
+            (ai_cols[0], "🧠", "LLM Provider",    llm_provider),
+            (ai_cols[1], "🎙️", "TTS Engine",      tts_provider),
+            (ai_cols[2], "🎞️", "Video Source",    video_src),
             (ai_cols[3], "📝", "Subtitle Engine", sub_provider),
-        ]
-        for col, icon, label, val in ai_items:
+        ]:
             col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.2);border-radius:10px;'
+                f'<div style="background:#1A1A1A;border:1px solid rgba(255,107,53,0.2);border-radius:10px;'
                 f'padding:14px;text-align:center;">'
                 f'<div style="font-size:1.2rem;margin-bottom:2px">{icon}</div>'
                 f'<div style="font-size:1.0rem;font-weight:700;color:#FFFFFF">{val}</div>'
@@ -406,83 +388,57 @@ def render_dashboard():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+    except Exception as e:
+        st.warning(f"⚠️ Provider info unavailable: {e}")
 
-        # ── 4. Batch Queue Section ────────────────────────────────────
+    # ── 7. Recent Videos Gallery ──────────────────────────────────────────
+    try:
+        import glob, time, os as _os
+        from app.utils import utils as _utils
+        root    = _utils.root_dir()
+        storage = _os.path.join(root, "storage")
+        all_vp  = []
+        for pattern in [
+            _os.path.join(storage, "quran_videos",  "*.mp4"),
+            _os.path.join(storage, "darood_videos", "*.mp4"),
+            _os.path.join(storage, "general_videos","*.mp4"),
+        ]:
+            all_vp.extend(glob.glob(pattern))
+        all_vp_sorted = sorted(set(all_vp), key=_os.path.getmtime, reverse=True)
+
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '⚡ Task Queue Status</div>',
+            '<div style="font-size:1rem;font-weight:700;color:#FF6B35;margin-bottom:10px;">🎬 Recent Generated Outputs</div>',
             unsafe_allow_html=True,
         )
-        q_cols = st.columns(5)
-        q_labels = [("Total", "📊", total_tasks), ("Pending", "⏳", 0),
-                    ("Running", "🔥", active_tasks), ("Completed", "✅", done_tasks),
-                    ("Failed", "❌", 0)]
-        for col, (label, icon, val) in zip(q_cols, q_labels):
-            col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.3);border-radius:10px;'
-                f'padding:16px 12px;text-align:center;">'
-                f'<div style="font-size:1.4rem;margin-bottom:4px">{icon}</div>'
-                f'<div style="font-size:1.5rem;font-weight:800;color:#FF6B35">{val}</div>'
-                f'<div style="font-size:0.75rem;color:#8A7F78;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px">{label}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-        # ── 5. Cache Stats Section ───────────────────────────────────
-        st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '💾 Cache Analytics</div>',
-            unsafe_allow_html=True,
-        )
-        cc1, cc2, cc3 = st.columns(3)
-        cache_items = [
-            (cc1, "📁", "Cache Entries",   cache_entries,               "#FF6B35"),
-            (cc2, "💿", "Cache Size (MB)", f"{cache_mb} MB",           "#FFB347"),
-            (cc3, "⚡", "Hit Rate",        f"{92.5 if cache_entries > 0 else 0.0}%", "#00E5A0"),
-        ]
-        for col, icon, label, val, color in cache_items:
-            col.markdown(
-                f'<div style="background:#161616;border:1px solid rgba(255,107,53,0.25);border-radius:10px;'
-                f'padding:18px;text-align:center;">'
-                f'<div style="font-size:1.5rem;margin-bottom:4px">{icon}</div>'
-                f'<div style="font-size:1.6rem;font-weight:800;color:{color}">{val}</div>'
-                f'<div style="font-size:0.75rem;color:#8A7F78;margin-top:4px;text-transform:uppercase">{label}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-        # ── 6. Recent Generated Videos Gallery ────────────────────────
-        st.markdown(
-            '<div style="margin:24px 0 12px 0;font-size:1.1rem;font-weight:700;color:#FF6B35;letter-spacing:0.3px">'
-            '🎬 Recent Generated Outputs</div>',
-            unsafe_allow_html=True,
-        )
-        if recent_videos:
-            v_cols = st.columns(min(3, len(recent_videos)))
-            for idx, (mtime, vpath) in enumerate(recent_videos[:3]):
-                with v_cols[idx % 3]:
+        if all_vp_sorted:
+            v_cols = st.columns(min(3, len(all_vp_sorted)))
+            for idx, vpath in enumerate(all_vp_sorted[:3]):
+                with v_cols[idx]:
                     st.video(vpath)
-                    vname = os.path.basename(vpath)
-                    vsize = round(os.path.getsize(vpath) / (1024 * 1024), 1)
-                    vtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(mtime))
-                    st.caption(f"📄 **{vname}** ({vsize} MB)\n🕒 {vtime}")
+                    st.caption(f"📄 **{_os.path.basename(vpath)}** ({round(_os.path.getsize(vpath)/(1024*1024),1)} MB)")
         else:
-            st.info("No generated videos found yet. Use Quran Video or Video Wizard to generate your first video!")
+            st.info("No generated videos found yet. Use **Create Video** to generate your first video!")
+    except Exception as e:
+        st.warning(f"⚠️ Recent videos unavailable: {e}")
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("🔄 Refresh Dashboard", key="dash_refresh", type="primary", use_container_width=True):
-                st.rerun()
-        with col_btn2:
-            if st.button("🧹 Clear Video Cache & Memory", key="dash_clear_cache", use_container_width=True):
+    # ── Refresh / Cache Controls ───────────────────────────────────────────
+    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("🔄 Refresh Dashboard", key="dash_refresh", type="primary", use_container_width=True):
+            st.rerun()
+    with col_btn2:
+        if st.button("🧹 Clear Video Cache", key="dash_clear_cache", use_container_width=True):
+            try:
                 from app.services.material import clear_video_cache
                 clear_video_cache()
-                st.success("Video cache & RAM memory cleaned successfully!")
+                st.success("Video cache cleaned successfully!")
                 st.rerun()
+            except Exception as e:
+                st.warning(f"Cache clear failed: {e}")
 
-    except Exception as e:
-        st.error(f"Dashboard error: {e}")
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1737,7 +1693,7 @@ def render_create_video_page():
 
 def render_assets_page():
     st.markdown('<h2 style="color:#FF6B35;margin-bottom:12px;">📁 Asset Library Manager</h2>', unsafe_allow_html=True)
-    from assets import scan_directory, search, get_asset_stats
+    from assets import scan_directory, search, get_stats
     
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -1757,8 +1713,8 @@ def render_assets_page():
 
     with col2:
         st.markdown("#### Scanner & System Stats")
-        stats = get_asset_stats()
-        st.metric("Total Registered Assets", stats.get("total_assets", 0))
+        stats = get_stats()
+        st.metric("Total Registered Assets", stats.get("total", 0))
         
         scan_path = st.text_input("Directory to Scan", value=os.path.join(root_dir, "resource"))
         if st.button("🔍 Scan Directory Now", use_container_width=True):
