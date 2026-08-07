@@ -1,0 +1,25 @@
+{
+  "brand_id": "product_promo",
+  "name": "E-Commerce Product Promo",
+  "description": "High conversion brand preset for e-commerce, dropshipping, and commercial ads.",
+  "logo_path": "",
+  "logo_position": "top_left",
+  "logo_size": 140,
+  "logo_opacity": 0.95,
+  "watermark_enabled": true,
+  "watermark_text": "Buy Now - Official Store",
+  "watermark_position": "bottom_right",
+  "watermark_color": "#00E5A0",
+  "colors": {
+    "primary": "#00E5A0",
+    "secondary": "#3B82F6",
+    "background": "#111827",
+    "text": "#FFFFFF"
+  },
+  "fonts": {
+    "title_font": "MicrosoftYaHeiBold.ttc",
+    "subtitle_font": "arial.ttf"
+  },
+  "intro_video": "",
+  "outro_video": ""
+}

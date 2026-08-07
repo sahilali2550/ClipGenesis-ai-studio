@@ -1,0 +1,25 @@
+{
+  "brand_id": "sahil_bedding",
+  "name": "Sahil Bedding Brand",
+  "description": "Official brand identity for Sahil Bedding luxury home textiles.",
+  "logo_path": "resource/public/sahil_logo.png",
+  "logo_position": "top_right",
+  "logo_size": 130,
+  "logo_opacity": 0.95,
+  "watermark_enabled": true,
+  "watermark_text": "@SahilBeddingOfficial",
+  "watermark_position": "bottom_right",
+  "watermark_color": "#FFD700",
+  "colors": {
+    "primary": "#FF6B35",
+    "secondary": "#FFB347",
+    "background": "#161616",
+    "text": "#FFFFFF"
+  },
+  "fonts": {
+    "title_font": "MicrosoftYaHeiBold.ttc",
+    "subtitle_font": "arial.ttf"
+  },
+  "intro_video": "",
+  "outro_video": ""
+}

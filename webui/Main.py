@@ -525,7 +525,23 @@ def _wizard_audio():
 
 
 def _wizard_settings():
-    st.markdown("### Step 5: Subtitles & Advanced Settings")
+    st.markdown("### Step 5: Settings & Brand Identity")
+
+    from app.services import templates
+    from brand import list_brands
+
+    # Template Selector
+    all_tmpl = templates.list_templates()
+    tmpl_opts = [("Default (Custom Settings)", "")] + [(t.get("name", t.get("template_id")), t.get("template_id")) for t in all_tmpl]
+    sel_t = st.selectbox("Production Template", options=range(len(tmpl_opts)), format_func=lambda x: tmpl_opts[x][0], index=0, key="wiz_tmpl")
+    st.session_state["wizard_template"] = tmpl_opts[sel_t][1]
+
+    # Brand Kit Selector
+    all_brands = list_brands()
+    brand_opts = [("None (Default Identity)", "")] + [(b.name, b.brand_id) for b in all_brands]
+    sel_b = st.selectbox("Brand Kit Preset", options=range(len(brand_opts)), format_func=lambda x: brand_opts[x][0], index=0, key="wiz_brand")
+    st.session_state["wizard_brand"] = brand_opts[sel_b][1]
+
     sub_enabled = st.checkbox("Enable Subtitles", value=True, key="wiz_sub_enabled")
     st.session_state["wizard_sub_enabled"] = sub_enabled
     if sub_enabled:
@@ -597,6 +613,12 @@ def _wizard_generate():
             logo_size=st.session_state.get("wizard_logo_sz", 120),
             logo_opacity=st.session_state.get("wizard_logo_op", 0.90),
         )
+
+        from brand import merge_template_and_brand
+        tmpl_id = st.session_state.get("wizard_template", "")
+        brand_id = st.session_state.get("wizard_brand", "")
+        params = merge_template_and_brand(tmpl_id, brand_id, params)
+
         config.save_config()
         task_id = str(uuid4())
         log_container = st.empty()

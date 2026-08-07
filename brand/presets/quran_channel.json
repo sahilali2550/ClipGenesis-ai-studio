@@ -1,0 +1,25 @@
+{
+  "brand_id": "quran_channel",
+  "name": "Quranic Guidance Channel",
+  "description": "Brand preset for Islamic recitation, Quranic Ayahs, and Darood videos.",
+  "logo_path": "",
+  "logo_position": "top_center",
+  "logo_size": 110,
+  "logo_opacity": 0.90,
+  "watermark_enabled": true,
+  "watermark_text": "Islamic Guidance Channel",
+  "watermark_position": "bottom_center",
+  "watermark_color": "#FFD700",
+  "colors": {
+    "primary": "#FFD700",
+    "secondary": "#00E5A0",
+    "background": "#0D1117",
+    "text": "#FFFFFF"
+  },
+  "fonts": {
+    "title_font": "arial.ttf",
+    "subtitle_font": "arial.ttf"
+  },
+  "intro_video": "",
+  "outro_video": ""
+}
