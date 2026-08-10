@@ -33,12 +33,24 @@ class VideoAspect(str, Enum):
     portrait = "9:16"
     square = "1:1"
 
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            val_lower = value.lower().strip()
+            if val_lower in ("landscape", "16:9", "horizontal"):
+                return cls.landscape
+            elif val_lower in ("portrait", "9:16", "vertical"):
+                return cls.portrait
+            elif val_lower in ("square", "1:1"):
+                return cls.square
+        return cls.portrait
+
     def to_resolution(self):
-        if self == VideoAspect.landscape.value:
+        if self == VideoAspect.landscape.value or self == "16:9" or self == "landscape":
             return 1920, 1080
-        elif self == VideoAspect.portrait.value:
+        elif self == VideoAspect.portrait.value or self == "9:16" or self == "portrait":
             return 1080, 1920
-        elif self == VideoAspect.square.value:
+        elif self == VideoAspect.square.value or self == "1:1" or self == "square":
             return 1080, 1080
         return 1080, 1920
 
