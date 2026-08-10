@@ -234,36 +234,90 @@ def create_dynamic_phrase_card(
         draw.rounded_rectangle([c_x1, c_y1, c_x2, c_y2], radius=24, fill=(0, 0, 0, 0), outline=(255, 215, 0, 180), width=2)
 
 
+    # Clean text by stripping stray exclamation marks / brackets that break BiDi layout
+    clean_arabic = re.sub(r'[!！?؟\(\)]', '', arabic_phrase).strip()
+    clean_urdu = re.sub(r'[!！?؟\(\)]', '', urdu_phrase).strip()
+
+    # Word-by-word line wrapping for Arabic
+    ar_words = [w.strip() for w in clean_arabic.split() if w.strip()]
+    ar_lines = []
+    dummy = Image.new("RGBA", (1, 1))
+    dummy_draw = ImageDraw.Draw(dummy)
+    curr_line = []
+    for w_item in ar_words:
+        test_line = curr_line + [w_item]
+        test_str = " ".join(test_line)
+        bbox = dummy_draw.textbbox((0, 0), test_str, font=font_arabic)
+        line_w = bbox[2] - bbox[0]
+        if line_w <= (width - 120) or not curr_line:
+            curr_line.append(w_item)
+        else:
+            ar_lines.append(" ".join(curr_line))
+            curr_line = [w_item]
+    if curr_line:
+        ar_lines.append(" ".join(curr_line))
+
+    ur_lines = []
+    if not pure_arabic_only and clean_urdu:
+        ur_words = [w.strip() for w in clean_urdu.split() if w.strip()]
+        curr_u_line = []
+        for u_item in ur_words:
+            test_line = curr_u_line + [u_item]
+            test_str = " ".join(test_line)
+            bbox = dummy_draw.textbbox((0, 0), test_str, font=font_urdu)
+            line_w = bbox[2] - bbox[0]
+            if line_w <= (width - 140) or not curr_u_line:
+                curr_u_line.append(u_item)
+            else:
+                ur_lines.append(" ".join(curr_u_line))
+                curr_u_line = [u_item]
+        if curr_u_line:
+            ur_lines.append(" ".join(curr_u_line))
+
+    total_h = (len(ar_lines) * 90) + (len(ur_lines) * 60)
+    y_curr = (height // 2) - (total_h // 2)
+
     # Active Spoken Arabic Phrase (Pure Arabic Calligraphy with Drop Shadow & Gold Glow)
-    arabic_lines = textwrap.wrap(arabic_phrase, width=26)
-    
-    total_lines = len(arabic_lines)
-    if not pure_arabic_only and urdu_phrase:
-        total_lines += len(textwrap.wrap(urdu_phrase, width=32)) + 1
-
-    y_start = (height // 2) - (total_lines * 40)
-    y_curr = y_start
-
-    for line in arabic_lines:
+    for line in ar_lines:
         line_shaped = reshape_text_for_display(line)
         # Deep drop shadow for maximum legibility over moving video
         for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3), (0, 3), (0, -3), (3, 0), (-3, 0)]:
             draw.text((width // 2 + dx, y_curr + dy), line_shaped, fill=(0, 0, 0, 240), font=font_arabic, anchor="mm")
         
         draw.text((width // 2, y_curr), line_shaped, fill=(255, 215, 0), font=font_arabic, anchor="mm")
-        y_curr += 85
+        y_curr += 90
 
-    # Optional Urdu Subtitle (Crisp White with drop shadow at bottom edge)
-    if not pure_arabic_only and urdu_phrase.strip():
-        y_curr += 20
-        urdu_lines = textwrap.wrap(urdu_phrase, width=34)
-        for line in urdu_lines:
+    # Optional Urdu Subtitle (Crisp White with drop shadow)
+    if not pure_arabic_only and ur_lines:
+        y_curr += 15
+        for line in ur_lines:
             line_shaped = reshape_text_for_display(line)
             draw.text((width // 2 + 2, y_curr + 2), line_shaped, fill=(0, 0, 0, 220), font=font_urdu, anchor="mm")
             draw.text((width // 2, y_curr), line_shaped, fill=(255, 255, 255), font=font_urdu, anchor="mm")
-            y_curr += 55
+            y_curr += 60
 
     return img
+
+
+def apply_studio_reverb_to_audio(audio_path: str) -> str:
+    """Apply spatial mosque hall echo & studio reverb filter to recitation audio using FFmpeg."""
+    if not audio_path or not os.path.exists(audio_path):
+        return audio_path
+    reverb_path = audio_path.replace(".mp3", "_reverb.mp3")
+    try:
+        import subprocess
+        cmd = [
+            "ffmpeg", "-y", "-i", audio_path,
+            "-af", "aecho=0.8:0.88:60:0.4,highpass=f=80,lowpass=f=12000",
+            "-ac", "2", "-ar", "44100", reverb_path
+        ]
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        if os.path.exists(reverb_path) and os.path.getsize(reverb_path) > 1000:
+            logger.info("🔊 Applied Studio Mosque Reverb & Echo Audio Filter!")
+            return reverb_path
+    except Exception as err:
+        logger.warning(f"Studio reverb filter fallback: {err}")
+    return audio_path
 
 
 def generate_darood_video(
@@ -304,12 +358,14 @@ def generate_darood_video(
         voice.tts(
             text=script_text,
             voice_name=voice_name,
-            voice_rate=0.88,  # Emotional, slow recitation speed
+            voice_rate=0.85,  # Emotional slow recitation speed
             voice_file=temp_audio,
         )
         if not os.path.exists(temp_audio):
             raise RuntimeError("Failed to generate Darood audio recitation.")
-        audio_file_to_use = temp_audio
+        
+        # Apply Studio Mosque Reverb Filter for Soulful Qirat Audio
+        audio_file_to_use = apply_studio_reverb_to_audio(temp_audio)
 
     try:
         from moviepy.video.io.VideoFileClip import VideoFileClip
@@ -454,9 +510,31 @@ def generate_darood_video(
                 logger.warning(f"Pexels video download fallback: {pexels_err}")
 
 
-        # Fallback to ColorClip if video search fails
+        # 🛡️ Smart fallback if stock video search fails (NEVER plain black screen!)
         if video_clip is None:
-            video_clip = ColorClip(size=(w, h), color=(10, 22, 16), duration=duration)
+            logger.info("Attempting 9Router AI motion fallback for Darood background...")
+            try:
+                from app.services.ninerouter_image import generate_9router_image, image_to_kenburns_clip
+                img_path = generate_9router_image(
+                    prompt=f"Peaceful Islamic mosque background, {darood_item.get('title', '')}, golden ambient light, 4K cinematic",
+                    save_dir=os.path.join(output_dir, "9router_images"),
+                )
+                if img_path:
+                    v_aspect = VideoAspect.portrait if aspect_ratio == "portrait" else VideoAspect.landscape
+                    clip_path = image_to_kenburns_clip(
+                        image_path=img_path,
+                        duration=duration,
+                        video_aspect=v_aspect,
+                        task_dir=os.path.join(output_dir, "9router_clips"),
+                    )
+                    if clip_path and os.path.exists(clip_path):
+                        video_clip = VideoFileClip(clip_path)
+            except Exception as bg_fb_err:
+                logger.warning(f"AI motion fallback warning: {bg_fb_err}")
+
+        # Final safety fallback: Rich Emerald Gold Gradient Ambient Background (never plain black!)
+        if video_clip is None:
+            video_clip = ColorClip(size=(w, h), color=(14, 42, 30), duration=duration)
 
         # Subtle dark overlay mask to boost text contrast over bright scenes
         dark_mask = ColorClip(size=(w, h), color=(0, 0, 0), duration=duration)
@@ -588,7 +666,9 @@ def generate_darood_video(
         # Save to dedicated section folder storage/darood_videos/
         darood_out_dir = os.path.join(utils.root_dir(), "storage", "darood_videos")
         os.makedirs(darood_out_dir, exist_ok=True)
-        final_darood_video = os.path.join(darood_out_dir, f"darood_{darood_id}_{task_id[:8]}.mp4")
+        d_id = darood_item.get("id", "custom")
+        task_sub_id = random.randint(1000, 9999)
+        final_darood_video = os.path.join(darood_out_dir, f"darood_{d_id}_{task_sub_id}.mp4")
 
         import shutil
         if os.path.exists(out_path):

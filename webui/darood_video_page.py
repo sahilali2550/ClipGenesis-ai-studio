@@ -56,18 +56,22 @@ def render_darood_video_page():
 
         # ── Arabic Preview Box ─────────────────────────────────────────────────
         with st.container(border=True):
-            st.markdown("#### 📜 Text Preview")
+            st.markdown("#### 📜 Full Text Preview")
+            full_arabic = selected_darood.get("arabic", "")
+            full_urdu = selected_darood.get("urdu", "")
+            full_benefit = selected_darood.get("benefit", "خاص درود شریف")
+
             st.markdown(
                 f"""
-                <div style="background: rgba(0,229,160,0.06); border: 1px solid rgba(0,229,160,0.25); border-radius: 12px; padding: 18px; text-align: center;">
-                    <div style="font-size: 1.6rem; font-weight: 700; color: #FFD700; line-height: 1.8; font-family: 'Amiri', 'Scheherazade', serif; margin-bottom: 12px;">
-                        {selected_darood['arabic']}
+                <div style="background: rgba(0,229,160,0.06); border: 1px solid rgba(0,229,160,0.25); border-radius: 12px; padding: 18px; text-align: center; max-height: 250px; overflow-y: auto;">
+                    <div style="font-size: 1.45rem; font-weight: 700; color: #FFD700; line-height: 2.0; font-family: 'Amiri', 'Scheherazade', serif; margin-bottom: 14px; white-space: pre-wrap;">
+                        {full_arabic}
                     </div>
-                    <div style="font-size: 0.95rem; color: #E8E0D8; margin-bottom: 8px;">
-                        <b>Urdu:</b> {selected_darood['urdu']}
+                    <div style="font-size: 0.95rem; color: #E8E0D8; margin-bottom: 8px; line-height: 1.6;">
+                        <b>Urdu:</b> {full_urdu}
                     </div>
                     <div style="font-size: 0.82rem; color: #00E5A0;">
-                        💡 <b>فضیلت:</b> {selected_darood['benefit']}
+                        💡 <b>فضیلت:</b> {full_benefit}
                     </div>
                 </div>
                 """,
@@ -76,7 +80,15 @@ def render_darood_video_page():
 
         # ── Voice, Theme & Aspect Ratio Settings ───────────────────────────────────────
         with st.container(border=True):
-            st.markdown("#### ⚙️ Video & Audio Settings")
+            st.markdown("#### ⚙️ Video & Subtitle Settings")
+
+            # Translation Toggle
+            show_urdu_sub = st.checkbox(
+                "📜 Include Urdu Translation Subtitles on Video (ویڈیو پر اردو ترجمہ دکھائیں)",
+                value=True,
+                key="darood_show_urdu_toggle"
+            )
+            pure_arabic_only = not show_urdu_sub
 
             # 1. Custom Audio File Upload
             custom_audio_file = st.file_uploader(
@@ -162,11 +174,21 @@ def render_darood_video_page():
             col_t1, col_t2 = st.columns(2)
             with col_t1:
                 theme_options = [
-                    ("driving",  "🚗 Driving POV (Rain/Road)"),
-                    ("islamic",  "🕌 Islamic Sacred Sites (Kaaba/Mosque)"),
-                    ("rain",     "🌧️ Rain & Storm ASMR"),
-                    ("nature",   "🌌 Nature & Skies"),
-                    ("9router",  "🤖 9Router AI Images + Motion (Free)"),
+                    ("madinah",        "🕌 Madinah & Green Dome (مدینہ منورہ)"),
+                    ("kaaba",          "🕋 Kaaba / Mecca (مکہ مکرمہ)"),
+                    ("mosque",         "🏛️ Mosque Interior & Architecture (مسجد)"),
+                    ("quran",          "📖 Islamic Calligraphy & Quran (خطاطی)"),
+                    ("rain",           "🌧️ Rain & Storm ASMR (بارش)"),
+                    ("ocean",          "🌊 Ocean Waves & Beach (سمندر کی لہریں)"),
+                    ("nature",         "🌿 Mountain & Nature Aerial (پہاڑ و وادی)"),
+                    ("dark_aesthetic", "🔥 Dark Aesthetic & Gold Glow (ڈارک فریم)"),
+                    ("autumn",         "🍃 Autumn Woods & Falling Leaves (خریف کا موسم)"),
+                    ("snow",           "❄️ Winter Snowfall & Frozen Peaks (برف باری)"),
+                    ("space",          "🌌 Deep Space & Northern Aurora (کہکشان)"),
+                    ("candle",         "🕯️ Candle Glow & Vintage Ambiance (موم بتی)"),
+                    ("driving",        "🚗 Driving POV & Rainy Highway (ڈرائیونگ)"),
+                    ("city",           "🏙️ City Lights & Night Timelapse (نائٹ سٹی)"),
+                    ("9router",        "🤖 9Router AI Images + Motion (Free)"),
                 ]
                 theme_dict = {t[0]: t[1] for t in theme_options}
                 bg_theme = st.selectbox(
@@ -182,14 +204,7 @@ def render_darood_video_page():
                         "اگر 9Router offline ہو تو Pexels fallback ہوگا۔"
                     )
 
-            with col_t2:
-                text_style_mode = st.radio(
-                    "Text Display Style",
-                    options=["✨ Pure Arabic Only (Reel Style)", "📜 Arabic + Urdu Subtitles"],
-                    index=0,
-                    key="darood_text_style_radio",
-                )
-                pure_arabic = "Pure Arabic" in text_style_mode
+            pure_arabic = not show_urdu_sub
 
             show_box_frame = st.checkbox("🔲 Show Box Frame (Optional)", value=False, key="darood_show_box_check")
 

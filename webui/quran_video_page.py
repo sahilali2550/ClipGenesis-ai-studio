@@ -97,14 +97,22 @@ def render_quran_video():
 
         # ── Translation ───────────────────────────────────────────────────────
         with st.container(border=True):
-            st.markdown("#### 🌐 ترجمہ")
+            st.markdown("#### 🌐 ترجمہ (Translation)")
+            show_urdu_sub = st.checkbox(
+                "📜 Include Urdu Translation Subtitles on Video (ویڈیو پر اردو ترجمہ دکھائیں)",
+                value=True,
+                key="q_show_urdu_sub"
+            )
+            tr_options = dict(translations)
+            tr_options["None (Arabic Only / صرف عربی متن)"] = "none"
+
             tr_label = st.selectbox(
-                "ترجمہ",
-                options=list(translations.keys()),
-                index=0,
+                "ترجمہ والی زبان",
+                options=list(tr_options.keys()),
+                index=0 if show_urdu_sub else (len(tr_options) - 1),
                 key="q_translation",
             )
-            translation_edition = translations[tr_label]
+            translation_edition = "none" if not show_urdu_sub else tr_options[tr_label]
 
         # ── Audio FX ──────────────────────────────────────────────────────────
         with st.container(border=True):
@@ -132,6 +140,25 @@ def render_quran_video():
                 index=0, key="q_aspect",
             )
             video_aspect = "9:16" if "9:16" in aspect else "16:9"
+
+            show_bism_header = st.checkbox(
+                "🔝 Display Golden Bismillah Calligraphy Header at Top (ٹاپ پر سنہری بسم اللہ خطاطی دکھائیں)",
+                value=True,
+                key="q_show_bism_header"
+            )
+            bism_style_label = st.selectbox(
+                "🕌 Bismillah Calligraphy Style (بسم اللہ کا اسٹائل)",
+                options=[
+                    "🌟 Golden Royal Thuluth (سنہری ثلث)",
+                    "🕋 Ottoman Diwani Calligraphy (عثمانی دیوانی)",
+                    "✨ Ornamental Gold Emblem (شاہی مہر)",
+                    "📜 Minimalist Kufic Art (جدید کوفی)",
+                    "🕌 Classic Medina Hafs (کلاسک مدنی)",
+                    "🇵🇰 Premium Nastaleeq (نستایلین)",
+                ],
+                index=0,
+                key="q_bism_style"
+            )
 
             font_script = st.selectbox(
                 "🔤 Arabic Font Style / Script",
@@ -315,6 +342,8 @@ def render_quran_video():
                 log_cb=log_cb,
                 pexels_api_key=pexels_key if video_source == "pexels" else "",
                 pixabay_api_key=pixabay_key if video_source == "pixabay" else "",
+                show_bismillah_header=show_bism_header,
+                bismillah_style=bism_style_label,
                 logo_path=q_logo_path,
                 logo_position=q_logo_pos,
                 logo_size=q_logo_sz,

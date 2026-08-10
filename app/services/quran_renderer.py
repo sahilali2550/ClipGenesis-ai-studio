@@ -263,6 +263,39 @@ def render_translation_line(
     return canvas
 
 
+def render_top_bismillah_header(
+    style: str = "thuluth",
+    canvas_width: int = 1080,
+    font_size: int = 44,
+    color: str = "#FFD700",
+    stroke_color: str = "#000000",
+) -> Image.Image:
+    """Render a golden Bismillah Calligraphy Header at top center of video frame."""
+    bismillah_text = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"
+    font_path = ARABIC_FONT_PATH if os.path.exists(ARABIC_FONT_PATH) else FALLBACK_FONT_PATH
+    font = _get_font(font_path, font_size)
+    reshaped = reshape_arabic(bismillah_text)
+
+    dummy = Image.new("RGBA", (1, 1))
+    draw = ImageDraw.Draw(dummy)
+    bbox = draw.textbbox((0, 0), reshaped, font=font, stroke_width=2)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+
+    header_img = Image.new("RGBA", (canvas_width, th + 30), (0, 0, 0, 0))
+    hdraw = ImageDraw.Draw(header_img)
+    lx = (canvas_width - tw) // 2 - bbox[0]
+    ly = 15 - bbox[1]
+
+    sc = _hex_to_rgb(stroke_color)
+    fc = _hex_to_rgb(color)
+    for dx, dy in [(-3,-3),(3,-3),(-3,3),(3,3),(0,3),(0,-3),(3,0),(-3,0)]:
+        hdraw.text((lx+dx, ly+dy), reshaped, font=font, fill=(*sc, 240))
+    hdraw.text((lx, ly), reshaped, font=font, fill=(*fc, 255), stroke_width=2, stroke_fill=(*sc, 240))
+
+    return header_img
+
+
 def build_subtitle_frame(
     arabic_text: str,
     translation_text: str = "",
@@ -280,11 +313,24 @@ def build_subtitle_frame(
     translation_color: str = "#EEEEEE",
     is_urdu_translation: bool = True,
     position_pct: float = 0.55,
+    show_bismillah_header: bool = True,
+    bismillah_style: str = "thuluth",
 ) -> Image.Image:
     """
     Compose full borderless subtitle overlay for one video frame (NO black background box).
     """
     frame = Image.new("RGBA", (video_width, video_height), (0, 0, 0, 0))
+
+    # Optional Top Bismillah Calligraphy Header
+    if show_bismillah_header:
+        bism_header = render_top_bismillah_header(
+            style=bismillah_style,
+            canvas_width=video_width,
+            font_size=int(arabic_font_size * 0.55),
+            color="#FFD700",
+            stroke_color=stroke_color,
+        )
+        frame.paste(bism_header, (0, int(video_height * 0.08)), bism_header)
 
     if arabic_words:
         arabic_img = render_arabic_with_highlight(

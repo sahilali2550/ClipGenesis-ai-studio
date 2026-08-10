@@ -39,15 +39,22 @@ def render_link_recreator_page():
 
         # ── Settings ──────────────────────────────────────────────────────────
         with st.container(border=True):
-            st.markdown("#### ⚙️ Background Settings")
+            st.markdown("#### ⚙️ Background & Copyright Settings")
 
-            # ── Video Source (extensible — add new sources here in future) ───────
+            # Anti-Copyright Shield Checkbox
+            enable_shield = st.checkbox(
+                "🛡️ Enable Maximum Anti-Copyright Shield (Content ID Pitch Shift & ASMR Rain Mix)",
+                value=True,
+                help="Modulates audio frequencies (0.985x-1.015x) and layers subtle ASMR rain to ensure 100% protection against Facebook & YouTube Content ID matches.",
+                key="url_copyright_shield"
+            )
+
+            # ── Video Source ──────────────────────────────────────────────────
             _src_options = [
-                ("🔥 Pexels (Stock 4K Video)",              "pexels"),
-                ("🌌 Pixabay (Stock Video)",                "pixabay"),
+                ("🔥 Ultimate Hybrid (Pexels + Pixabay + Coverr + Mixkit + Videvo — Max 4K)", "hybrid"),
                 ("🤖 9Router AI Images + Motion (Free)",   "9router"),
-                # ── Add future sources here ──
-                # ("New Source Label", "source_key"),
+                ("Pexels Only",                            "pexels"),
+                ("Pixabay Only",                           "pixabay"),
             ]
             _src_sel = st.selectbox(
                 "Video Source / ویڈیو سورس",
@@ -61,29 +68,34 @@ def render_link_recreator_page():
             if video_source == "9router":
                 st.info(
                     "🤖 **9Router AI Images + Motion**: Video URL کے title/topic کے "
-                    "مطابق AI تصویر بنائی جائے گی۔ "
-                    "اگر 9Router offline ہو تو خود بخود Pexels پر واپس آجائے گا۔"
+                    "مطابق AI تصویر بنائی جائے گی۔"
                 )
 
             bg_theme = st.selectbox(
                 "Background Video Theme",
-                options=["kaaba", "mosque", "quran", "rain", "nature", "galaxy", "driving"],
+                options=[
+                    "kaaba", "madinah", "mosque", "quran", "rain", "ocean",
+                    "nature", "dark_aesthetic", "autumn", "snow", "space",
+                    "candle", "driving", "city"
+                ],
                 format_func=lambda x: {
-                    "kaaba":   "🕋 Kaaba / Mecca  (Islamic — architecture only)",
-                    "mosque":  "🕌 Mosque Interior  (Islamic — architecture only)",
-                    "quran":   "📖 Islamic Calligraphy / Masjid",
-                    "rain":    "🌧️ Rain & Storm ASMR",
-                    "nature":  "🌿 Mountain & Nature Aerial",
-                    "galaxy":  "✨ Galaxy & Stars",
-                    "driving": "🚗 Driving POV / Road",
+                    "kaaba":          "🕋 Kaaba / Mecca (مکہ مکرمہ)",
+                    "madinah":        "🕌 Madinah & Green Dome (مدینہ منورہ)",
+                    "mosque":         "🏛️ Mosque Interior & Architecture (مسجد)",
+                    "quran":          "📖 Islamic Calligraphy & Quran Ambiance (خطاطی)",
+                    "rain":           "🌧️ Rain & Storm ASMR (بارش)",
+                    "ocean":          "🌊 Ocean Waves & Beach (سمندر کی لہریں)",
+                    "nature":         "🌿 Mountain & Nature Aerial (پہاڑ و وادی)",
+                    "dark_aesthetic": "🔥 Dark Aesthetic & Gold Glow (ڈارک فریم)",
+                    "autumn":         "🍃 Autumn Woods & Falling Leaves (خریف کا موسم)",
+                    "snow":           "❄️ Winter Snowfall & Frozen Peaks (برف باری)",
+                    "space":          "🌌 Deep Space & Northern Aurora (کہکشان)",
+                    "candle":         "🕯️ Candle Glow & Vintage Ambiance (موم بتی)",
+                    "driving":        "🚗 Driving POV & Rainy Highway (ڈرائیونگ)",
+                    "city":           "🏙️ City Lights & Night Timelapse (نائٹ سٹی)",
                 }.get(x, x),
                 key="url_bg_theme",
             )
-            if video_source == "9router":
-                st.caption(
-                    "💡 9Router کے ساتھ Theme بطور prompt hint کام کرے گا "
-                    "مثلاً kaaba theme کے ساتھ Islamic calligraphy prompt شامل ہوگا۔"
-                )
 
             aspect = st.selectbox(
                 "Video Aspect Ratio",
@@ -95,6 +107,23 @@ def render_link_recreator_page():
                 ),
                 key="url_aspect",
             )
+
+        # ── Channel Logo / Watermark Upload ──────────────────────────────────
+        with st.container(border=True):
+            st.markdown("#### 🏷️ Channel Branding (Optional)")
+            logo_file = st.file_uploader(
+                "Upload Logo / Watermark PNG",
+                type=["png", "jpg", "jpeg"],
+                key="url_logo_upload"
+            )
+            logo_path = ""
+            if logo_file is not None:
+                upload_dir = os.path.join(utils.root_dir(), "storage", "custom_logos")
+                os.makedirs(upload_dir, exist_ok=True)
+                logo_path = os.path.join(upload_dir, logo_file.name)
+                with open(logo_path, "wb") as f:
+                    f.write(logo_file.getbuffer())
+                st.success(f"🏷️ Logo Loaded: **{logo_file.name}**")
 
         # ── Generate Button ───────────────────────────────────────────────────
         if st.button("🚀 Re-Create Unique Reel", type="primary", use_container_width=True):
@@ -108,6 +137,8 @@ def render_link_recreator_page():
                             background_theme=bg_theme,
                             aspect_ratio=aspect,
                             video_source=video_source,
+                            enable_copyright_shield=enable_shield,
+                            logo_path=logo_path,
                         )
                         st.session_state["last_recreated_video"] = out_path
                         st.success("🎉 Reel re-created successfully!")

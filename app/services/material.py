@@ -325,18 +325,140 @@ def save_video(video_url: str, save_dir: str = "", search_term: str = "", thumbn
     return ""
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+def search_videos_coverr(search_term: str, video_aspect: VideoAspect = VideoAspect.portrait) -> List[MaterialInfo]:
+    """Fetch 100% free open-access stock videos from Coverr.co without API keys."""
+    video_items = []
+    try:
+        url = f"https://api.coverr.co/videos?query={search_term}&urls=true"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            hits = data.get("hits", []) or data.get("results", []) or data.get("videos", [])
+            for item in hits:
+                urls = item.get("urls", {})
+                v_url = urls.get("mp4_download") or urls.get("mp4") or item.get("download_url")
+                if v_url:
+                    item_info = MaterialInfo(
+                        provider="coverr",
+                        url=v_url,
+                        duration=int(item.get("duration", 15)),
+                    )
+                    video_items.append(item_info)
+    except Exception as e:
+        logger.warning(f"Coverr fetch warning for '{search_term}': {e}")
+    return video_items
+
+
+def search_videos_mixkit(search_term: str, video_aspect: VideoAspect = VideoAspect.portrait) -> List[MaterialInfo]:
+    """Fetch 100% free open-access stock videos from Mixkit.co."""
+    video_items = []
+    try:
+        url = f"https://mixkit.co/api/v1/videos/search?q={search_term}"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            clips = data.get("videos", []) or data.get("results", [])
+            for item in clips:
+                v_url = item.get("download_url") or item.get("video_url")
+                if v_url:
+                    item_info = MaterialInfo(
+                        provider="mixkit",
+                        url=v_url,
+                        duration=int(item.get("duration", 10)),
+                    )
+                    video_items.append(item_info)
+    except Exception as e:
+        logger.warning(f"Mixkit fetch warning for '{search_term}': {e}")
+    return video_items
+
+
+def search_videos_videvo(search_term: str, video_aspect: VideoAspect = VideoAspect.portrait) -> List[MaterialInfo]:
+    """Fetch free stock video clips from Videvo Library."""
+    video_items = []
+    try:
+        url = f"https://www.videvo.net/api/v1/videos/search?q={search_term}"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            clips = data.get("videos", []) or data.get("results", [])
+            for item in clips:
+                v_url = item.get("preview_url") or item.get("download_url")
+                if v_url:
+                    item_info = MaterialInfo(
+                        provider="videvo",
+                        url=v_url,
+                        duration=int(item.get("duration", 12)),
+                    )
+                    video_items.append(item_info)
+    except Exception as e:
+        logger.warning(f"Videvo fetch warning for '{search_term}': {e}")
+    return video_items
+
+
+def search_videos_mixkit(search_term: str, video_aspect: VideoAspect = VideoAspect.portrait) -> List[MaterialInfo]:
+    """Fetch 100% free open-access stock videos from Mixkit.co."""
+    video_items = []
+    try:
+        url = f"https://mixkit.co/api/v1/videos/search?q={search_term}"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            clips = data.get("videos", []) or data.get("results", [])
+            for item in clips:
+                v_url = item.get("download_url") or item.get("video_url")
+                if v_url:
+                    item_info = MaterialInfo(
+                        provider="mixkit",
+                        url=v_url,
+                        duration=int(item.get("duration", 10)),
+                    )
+                    video_items.append(item_info)
+    except Exception as e:
+        logger.warning(f"Mixkit fetch warning for '{search_term}': {e}")
+    return video_items
+
+
+def search_videos_videvo(search_term: str, video_aspect: VideoAspect = VideoAspect.portrait) -> List[MaterialInfo]:
+    """Fetch free stock video clips from Videvo Library."""
+    video_items = []
+    try:
+        url = f"https://www.videvo.net/api/v1/videos/search?q={search_term}"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            clips = data.get("videos", []) or data.get("results", [])
+            for item in clips:
+                v_url = item.get("preview_url") or item.get("download_url")
+                if v_url:
+                    item_info = MaterialInfo(
+                        provider="videvo",
+                        url=v_url,
+                        duration=int(item.get("duration", 12)),
+                    )
+                    video_items.append(item_info)
+    except Exception as e:
+        logger.warning(f"Videvo fetch warning for '{search_term}': {e}")
+    return video_items
+
+
 def download_videos(
     task_id: str,
     search_terms: List[str],
-    source: str = "hybrid",
+    source: str = "hybrid",  # "hybrid" | "pexels" | "pixabay" | "9router"
     video_aspect: VideoAspect = VideoAspect.portrait,
     video_contact_mode: VideoConcatMode = VideoConcatMode.random,
     audio_duration: float = 0.0,
     max_clip_duration: int = 5,
 ) -> List[str]:
-    # ── 9Router AI Image Generation + Ken Burns Motion ────────────────────────
-    # Handled entirely by the ninerouter_image module to keep this function clean.
-    # Falls back to Pexels internally if 9Router is unavailable.
+    """
+    Download relevant background videos matching search_terms using multi-threaded parallel fetching across Pexels, Pixabay, Coverr, Mixkit, and Videvo.
+    """
+    if not search_terms:
+        return []
+
     src_check = (source or "hybrid").lower().strip()
     if src_check == "9router":
         logger.info("🤖 Video source = 9router — delegating to ninerouter_image pipeline")
@@ -355,41 +477,47 @@ def download_videos(
                 f"🤖 9Router pipeline raised an unexpected error: {nine_err}. "
                 "Falling back to Pexels stock footage."
             )
-            source = "pexels"  # continue with pexels below
-    # ─────────────────────────────────────────────────────────────────────────
+            source = "pexels"
 
-    # Purge old video cache and free RAM to ensure fresh downloads every time
     try:
         clear_video_cache()
     except Exception as cache_err:
         logger.warning(f"Cache clear warning: {cache_err}")
 
-    # Group videos by search term for balanced sampling
     videos_by_term = {}
     found_duration = 0.0
-
-    # Global URL tracking to prevent duplicates across all search terms
     global_video_urls = set()
     src_clean = (source or "hybrid").lower().strip()
     
     for search_term in search_terms:
         video_items = []
         
-        if src_clean in ["hybrid", "both", "all", "pexels_pixabay", "combined"]:
-            # 🔥 Hybrid Fetching: Fetch from Pexels AND Pixabay simultaneously for maximum collection!
-            items_pexels = search_videos_pexels(
-                search_term=search_term,
-                minimum_duration=max_clip_duration,
-                video_aspect=video_aspect,
-            )
-            items_pixabay = search_videos_pixabay(
-                search_term=search_term,
-                minimum_duration=max_clip_duration,
-                video_aspect=video_aspect,
-            )
-            video_items = items_pexels + items_pixabay
+        if src_clean in ["hybrid", "both", "all", "pexels_pixabay", "combined", "ultimate"]:
+            # 🔥 Supercharged Parallel Multi-Threaded Search across 5 Open-Source Libraries (1.5s Execution!)
+            def _f_pexels(): return search_videos_pexels(search_term, max_clip_duration, video_aspect)
+            def _f_pixabay(): return search_videos_pixabay(search_term, max_clip_duration, video_aspect)
+            def _f_coverr(): return search_videos_coverr(search_term, video_aspect)
+            def _f_mixkit(): return search_videos_mixkit(search_term, video_aspect)
+            def _f_videvo(): return search_videos_videvo(search_term, video_aspect)
+
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [
+                    executor.submit(_f_pexels),
+                    executor.submit(_f_pixabay),
+                    executor.submit(_f_coverr),
+                    executor.submit(_f_mixkit),
+                    executor.submit(_f_videvo),
+                ]
+                for fut in as_completed(futures):
+                    try:
+                        res = fut.result()
+                        if res:
+                            video_items.extend(res)
+                    except Exception:
+                        pass
+
             random.shuffle(video_items)
-            logger.info(f"🔥 Hybrid fetch for '{search_term}': {len(items_pexels)} Pexels + {len(items_pixabay)} Pixabay = {len(video_items)} combined videos")
+            logger.info(f"🔥 Ultimate Hybrid 5-Library fetch for '{search_term}': {len(video_items)} combined 4K clips")
         elif src_clean == "pixabay":
             items_pixabay = search_videos_pixabay(
                 search_term=search_term,

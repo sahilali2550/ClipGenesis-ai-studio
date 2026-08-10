@@ -195,11 +195,12 @@ def generate_quran_video(
         log("❌ Failed to download audio")
         return None
 
-    # ── Prepend Bismillah (Surahs 1 to 114) ──────────────────────────────
-    if not (surah == 1 and from_ayah == 1):
-        log("🕌 Prepending Bismillah (بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ)...")
+    # ── Prepend Bismillah Audio (Surahs 1 to 114) ──────────────────────────────
+    prepend_bismillah = kwargs.get("prepend_bismillah", True)
+    if prepend_bismillah and not (surah == 1 and from_ayah == 1) and surah != 9:
+        log(f"🕌 Fetching Bismillah audio for reciter '{reciter_name}'...")
         bismillah_audio = quran_api.download_audio(1, 1, reciter_name, audio_dir)
-        if bismillah_audio and os.path.exists(bismillah_audio):
+        if bismillah_audio and os.path.exists(bismillah_audio) and os.path.getsize(bismillah_audio) > 1000:
             audio_files = [bismillah_audio] + audio_files
             is_urdu = "ur." in (translation_edition or "")
             bismillah_tr = "اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے" if is_urdu else "In the name of Allah, the Entirely Merciful, the Especially Merciful."
@@ -212,6 +213,8 @@ def generate_quran_video(
             }
             ayahs = [bismillah_data] + ayahs
             translations[0] = bismillah_tr
+        else:
+            log("ℹ️ Direct Qari recitation start from Ayah 1 (Top Bismillah header will display visually)")
 
     progress(5, 10, "Audio downloaded")
 
@@ -244,8 +247,6 @@ def generate_quran_video(
     import random
     sample_k = min(8, len(ISLAMIC_KEYWORDS))
     selected_terms = random.sample(ISLAMIC_KEYWORDS, k=sample_k)
-    video_width, video_height = (1080, 1920) if "9:16" in video_aspect else (1920, 1080)
-
     try:
         from app.models.schema import VideoAspect, VideoConcatMode
         aspect_enum = VideoAspect.portrait if "9:16" in video_aspect else VideoAspect.landscape
@@ -271,11 +272,14 @@ def generate_quran_video(
     reciter_id = reciter_info.get("id", 7)
     elapsed = 0.0
 
+    show_bism_hdr = kwargs.get("show_bismillah_header", True)
+    bism_style = kwargs.get("bismillah_style", "thuluth")
+
     for idx, ayah_data in enumerate(ayahs):
         ayah_num = ayah_data["ayah"]
         arabic_text = ayah_data["arabic"]
         arabic_words = ayah_data.get("words", [arabic_text])
-        translation_text = translations.get(ayah_num, "")
+        translation_text = "" if (not translation_edition or translation_edition == "none") else translations.get(ayah_num, "")
 
         is_bism = ayah_data.get("is_bismillah", False)
         s_id = 1 if is_bism else surah
@@ -320,6 +324,8 @@ def generate_quran_video(
                     translation_color=translation_color,
                     is_urdu_translation=is_urdu,
                     position_pct=subtitle_position_pct,
+                    show_bismillah_header=show_bism_hdr,
+                    bismillah_style=bism_style,
                 )
                 img_path = os.path.join(task_dir, f"sub_{a_id:03d}_w{wi:03d}.png")
                 img.save(img_path, "PNG")
@@ -347,6 +353,8 @@ def generate_quran_video(
                     translation_color=translation_color,
                     is_urdu_translation=is_urdu,
                     position_pct=subtitle_position_pct,
+                    show_bismillah_header=show_bism_hdr,
+                    bismillah_style=bism_style,
                 )
                 img_path = os.path.join(task_dir, f"sub_{a_id:03d}_w{wi:03d}.png")
                 img.save(img_path, "PNG")
@@ -364,6 +372,8 @@ def generate_quran_video(
                 translation_color=translation_color,
                 is_urdu_translation=is_urdu,
                 position_pct=subtitle_position_pct,
+                show_bismillah_header=show_bism_hdr,
+                bismillah_style=bism_style,
             )
             img_path = os.path.join(task_dir, f"sub_{a_id:03d}.png")
             img.save(img_path, "PNG")

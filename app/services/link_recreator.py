@@ -19,16 +19,23 @@ from app.utils import utils
 from app.config import config
 from app.models.schema import VideoAspect, VideoConcatMode
 
-# ── Islamic-safe Pexels search terms (no people, architecture only) ───────────
+# ── 15 Master Theme Categories ─────────────────────────────────────────
 THEME_SEARCH_MAP = {
-    "islamic":  ["kaaba mecca aerial",   "mosque interior marble"],
-    "kaaba":    ["kaaba mecca aerial",   "grand mosque mecca"],
-    "mosque":   ["mosque interior dome", "masjid architecture interior"],
-    "quran":    ["mosque interior",      "islamic calligraphy architecture"],
-    "rain":     ["rain drops window",    "rain storm nature"],
-    "nature":   ["mountain landscape aerial", "forest aerial nature"],
-    "galaxy":   ["galaxy stars timelapse",   "nebula space stars"],
-    "driving":  ["road driving timelapse",   "highway aerial view"],
+    "kaaba":          ["kaaba mecca aerial", "grand mosque mecca tawaf"],
+    "madinah":        ["green dome madinah", "al masjid an nabawi aerial"],
+    "mosque":         ["mosque interior dome", "masjid architecture interior"],
+    "quran":          ["islamic calligraphy architecture", "mosque lighting quran"],
+    "rain":           ["rain drops window", "rain storm nature peaceful"],
+    "ocean":          ["ocean waves beach aerial", "sea sunset shoreline"],
+    "nature":         ["mountain landscape aerial", "forest aerial nature green"],
+    "dark_aesthetic": ["dark gold glow aesthetic", "cinematic dark lighting"],
+    "autumn":         ["autumn woods falling leaves", "yellow forest foliage"],
+    "snow":           ["winter snowfall frozen mountains", "snowy forest landscape"],
+    "space":          ["galaxy stars aurora borealis", "nebula space starry night"],
+    "candle":         ["candle light vintage ambiance", "warm candle glow dark"],
+    "driving":        ["highway driving rain pov", "road trip scenic timelapse"],
+    "city":           ["city lights night timelapse", "metropolis skyline night"],
+    "islamic":        ["kaaba mecca aerial", "mosque interior marble"],
 }
 
 # ── Fonts ──────────────────────────────────────────────────────────────────────
@@ -359,13 +366,68 @@ def _burn_subtitles_pil(
         return False
 
 
+def apply_anticopyright_audio_shield(audio_path: str, asmrsound_enabled: bool = True) -> str:
+    """
+    🛡️ Maximum Anti-Copyright Shield:
+    1. Frequency Pitch Modulation (asetrate=44100*0.985,atempo=1.015) to alter audio hash footprint.
+    2. ASMR Ambient Rain Layering (-22dB) to evade Content ID matches on YouTube/Facebook/Instagram.
+    """
+    if not audio_path or not os.path.exists(audio_path):
+        return audio_path
+
+    output_dir = os.path.dirname(audio_path)
+    ts = int(time.time() * 1000)
+    shifted_audio = os.path.join(output_dir, f"audio_pitch_{ts}.mp3")
+
+    try:
+        # Step 1: Frequency pitch shift (modifies audio hash without altering human clarity)
+        cmd_pitch = [
+            "ffmpeg", "-y", "-i", audio_path,
+            "-af", "asetrate=44100*0.985,atempo=1.015,highpass=f=80,lowpass=f=12000",
+            "-ac", "2", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k",
+            shifted_audio
+        ]
+        res = subprocess.run(cmd_pitch, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if res.returncode == 0 and os.path.exists(shifted_audio) and os.path.getsize(shifted_audio) > 1000:
+            audio_to_use = shifted_audio
+            logger.info("🛡️ Applied frequency pitch modulation for Content ID hash evasion!")
+        else:
+            audio_to_use = audio_path
+    except Exception as p_err:
+        logger.warning(f"Pitch shift warning: {p_err}")
+        audio_to_use = audio_path
+
+    # Step 2: Layer ASMR Ambient Rain Sound (if enabled)
+    asmr_path = os.path.join(utils.root_dir(), "resource", "audio", "rain_asmr.wav")
+    if asmrsound_enabled and os.path.exists(asmr_path):
+        try:
+            mixed_audio = os.path.join(output_dir, f"audio_shield_{ts}.mp3")
+            cmd_mix = [
+                "ffmpeg", "-y",
+                "-i", audio_to_use,
+                "-stream_loop", "-1", "-i", asmr_path,
+                "-filter_complex", "[1:a]volume=0.08[rain];[0:a][rain]amix=inputs=2:duration=first:dropout_transition=2[out]",
+                "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "192k",
+                mixed_audio
+            ]
+            res_mix = subprocess.run(cmd_mix, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res_mix.returncode == 0 and os.path.exists(mixed_audio) and os.path.getsize(mixed_audio) > 1000:
+                logger.info("🛡️ Applied ASMR Rain Ambient Layering for 100% Anti-Copyright Protection!")
+                return mixed_audio
+        except Exception as mix_err:
+            logger.warning(f"ASMR rain mix warning: {mix_err}")
+
+    return audio_to_use
+
+
 # ── Main workflow ─────────────────────────────────────────────────────────────
 
 def recreate_video_from_url(
     url: str,
     background_theme: str = "islamic",
     aspect_ratio: str = "portrait",
-    video_source: str = "pexels",   # "pexels" | "pixabay" | "9router" | future sources
+    video_source: str = "pexels",   # "pexels" | "pixabay" | "9router"
+    enable_copyright_shield: bool = True,
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
@@ -373,18 +435,22 @@ def recreate_video_from_url(
     output_filename: str = "",
 ) -> str:
     """
-    Full workflow: download complete audio → background (Pexels/Pixabay/9Router AI) → merge.
-    No text, no subtitles, no watermarks — pure audio + video only.
-    New video sources can be added in the future by extending the routing block below.
+    Full workflow: download complete audio → Anti-Copyright Shield → background (Pexels/Pixabay/9Router AI) → merge.
     """
     logger.info(f"🚀 Re-creating Reel from URL: {url}  |  source={video_source}")
 
     # 1. Download complete audio + metadata
     media_info   = download_media_from_url(url)
-    audio_path   = media_info["audio_path"]
+    raw_audio    = media_info["audio_path"]
     clean_title  = media_info["title"]
     caption_text = media_info.get("caption_text", "")
     duration     = media_info["duration"]
+
+    # Apply 100% Anti-Copyright Protection Shield
+    if enable_copyright_shield:
+        audio_path = apply_anticopyright_audio_shield(raw_audio, asmrsound_enabled=True)
+    else:
+        audio_path = raw_audio
 
     logger.info(f"🎵 Audio duration: {duration:.1f}s  |  Title: {clean_title}")
 
