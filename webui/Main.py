@@ -1927,6 +1927,9 @@ PAGE_MAP = {
     "settings": render_settings,
 }
 
+# Render Global Unfinished Task Banner at the very top of the app
+render_unfinished_task_banner()
+
 if current_page in PAGE_MAP:
     PAGE_MAP[current_page]()
 
