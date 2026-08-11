@@ -877,3 +877,44 @@ def render_logo_watermark_uploader(key_prefix="global"):
             logo_op = 0.90
 
         return logo_path, logo_pos, logo_sz, logo_op
+
+
+def render_unfinished_task_banner():
+    """
+    Renders a prominent top notification banner across all studio tabs
+    whenever an interrupted task (e.g. from power loss / crash) is detected.
+    Includes a 1-click '🔄 Resume & Finish Video' button.
+    """
+    try:
+        from app.services.task import get_unfinished_tasks, resume_task
+        unfinished = get_unfinished_tasks()
+        if not unfinished:
+            return
+
+        latest = unfinished[0]
+        t_id = latest["task_id"]
+        subj = latest["subject"]
+        created = latest["created_at"]
+
+        with st.container(border=True):
+            col_msg, col_btn = st.columns([3, 1])
+            with col_msg:
+                st.markdown(
+                    f"### ⚡ Unfinished Video Task Detected!\n"
+                    f"**Topic:** `{subj}` | **Created:** `{created}` | **Status:** Voiceover & Subtitles Saved ✅\n\n"
+                    f"*Your PC or app was interrupted during rendering. Click Resume to finish video in 15 seconds!*"
+                )
+            with col_btn:
+                if st.button("🔄 Resume & Finish Video", type="primary", key=f"resume_banner_btn_{t_id}", use_container_width=True):
+                    with st.spinner("⚡ Resuming video rendering from saved audio & subtitles..."):
+                        try:
+                            result = resume_task(t_id)
+                            if result and result.get("videos"):
+                                st.session_state["preview_video"] = result["videos"][0]
+                                st.session_state["preview_title"] = subj
+                            st.success(f"🎉 Task '{subj}' recovered and finished successfully!")
+                            st.rerun()
+                        except Exception as res_err:
+                            st.error(f"❌ Resume Error: {res_err}")
+    except Exception:
+        pass

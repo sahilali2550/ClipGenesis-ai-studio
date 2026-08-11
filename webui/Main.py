@@ -31,6 +31,7 @@ from webui.ui_theme import (
     render_wizard_bar,
     render_floating_preview_button,
     render_logo_watermark_uploader,
+    render_unfinished_task_banner,
 )
 from webui.quran_video_page import render_quran_video
 from webui.voice_studio_page import render_voice_studio_page
@@ -1804,6 +1805,7 @@ def render_settings():
 
 
 def render_create_video_page():
+    render_unfinished_task_banner()
     st.markdown('<h2 style="color:#FF6B35;margin-bottom:12px;">🎬 Create AI Video</h2>', unsafe_allow_html=True)
     sub_mode = st.radio(
         "Production Mode",
