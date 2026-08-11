@@ -128,14 +128,11 @@ def download_media_from_url(url: str, output_dir: str = "") -> dict:
     out_tmpl = os.path.join(output_dir, f"media_{timestamp}.%(ext)s")
 
     ydl_opts = {
-        'format': 'best/bestvideo+bestaudio',
+        'format': 'bestaudio/best',
         'outtmpl': out_tmpl,
-        'merge_output_format': 'mp4',
-        'writeautomaticsub': True,
-        'subtitlesformat': 'vtt',
-        'subtitleslangs': ['ar', 'en', 'ur'],
         'quiet': True,
         'no_warnings': True,
+        'ignoreerrors': True,
     }
 
     try:
