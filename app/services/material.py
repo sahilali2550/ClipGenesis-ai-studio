@@ -647,16 +647,18 @@ def download_videos(
                 downloaded_urls.add(item.url)
                 seconds = min(max_clip_duration, item.duration)
                 total_duration += seconds
-                if total_duration > audio_duration:
+                target_duration = min(audio_duration, 120.0)
+                if total_duration >= target_duration:
                     logger.info(
-                        f"total duration of downloaded videos: {total_duration} seconds, skip downloading more"
+                        f"total duration of downloaded videos: {total_duration} seconds (target: {target_duration}s), skip downloading more"
                     )
                     break
         except Exception as e:
             logger.error(f"failed to download video: {utils.to_json(item)} => {str(e)}")
     
-    if not video_paths or total_duration < audio_duration:
-        needed_duration = audio_duration - total_duration
+    target_duration = min(audio_duration, 120.0)
+    if not video_paths or total_duration < target_duration:
+        needed_duration = target_duration - total_duration
         import math
         needed_clips = math.ceil(needed_duration / max_clip_duration)
         logger.warning(f"Video assets short by {needed_duration:.2f}s. Generating {needed_clips} fallback AI images...")
