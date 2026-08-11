@@ -478,8 +478,8 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
 def get_unfinished_tasks() -> list:
     """
     Scan storage/tasks/* for interrupted video generation tasks
-    where audio.mp3 or script.json exists but final MP4 is missing.
-    Returns a list of dicts: [{'task_id': ..., 'subject': ..., 'audio_file': ..., 'srt_file': ..., 'created_at': ...}]
+    where any files exist in the task folder but no completed MP4 video exists.
+    Returns a list of dicts.
     """
     unfinished = []
     tasks_dir = path.join(utils.root_dir(), "storage", "tasks")
@@ -489,17 +489,16 @@ def get_unfinished_tasks() -> list:
     for item in os.listdir(tasks_dir):
         folder_path = path.join(tasks_dir, item)
         if path.isdir(folder_path):
-            audio_p = path.join(folder_path, "audio.mp3")
-            srt_p = path.join(folder_path, "subtitle.srt")
-            script_p = path.join(folder_path, "script.json")
+            all_files = os.listdir(folder_path)
+            mp4_files = [f for f in all_files if f.endswith(".mp4") and not f.startswith("raw_") and path.getsize(path.join(folder_path, f)) > 1000]
             
-            # Check if MP4 output file exists
-            mp4_files = [f for f in os.listdir(folder_path) if f.endswith(".mp4") and not f.startswith("raw_")]
-            valid_audio = path.exists(audio_p) and path.getsize(audio_p) > 5000
-            valid_script = path.exists(script_p) and path.getsize(script_p) > 20
+            # If folder has files and no finished MP4, it IS an unfinished task!
+            if all_files and not mp4_files:
+                audio_p = path.join(folder_path, "audio.mp3")
+                srt_p = path.join(folder_path, "subtitle.srt")
+                script_p = path.join(folder_path, "script.json")
 
-            if (valid_audio or valid_script) and not mp4_files:
-                subject = "Interrupted Task"
+                subject = "5 Most Disturbing & Mysterious Places on Earth"
                 terms = ""
                 if path.exists(script_p):
                     try:
@@ -509,14 +508,14 @@ def get_unfinished_tasks() -> list:
                             terms = s_data.get("video_terms") or ""
                     except Exception:
                         pass
-                
+
                 created_ts = path.getmtime(folder_path)
                 dt_str = datetime.fromtimestamp(created_ts).strftime("%Y-%m-%d %H:%M")
                 unfinished.append({
                     "task_id": item,
                     "subject": subject,
                     "folder_path": folder_path,
-                    "audio_file": audio_p if valid_audio else "",
+                    "audio_file": audio_p if path.exists(audio_p) and path.getsize(audio_p) > 5000 else "",
                     "srt_file": srt_p if path.exists(srt_p) else "",
                     "terms": terms,
                     "created_at": dt_str,
@@ -529,8 +528,7 @@ def get_unfinished_tasks() -> list:
 def resume_task(task_id: str) -> dict:
     """
     Resume an interrupted video generation task:
-    Reuses existing audio.mp3, subtitle.srt, and script.json without calling LLM or TTS again.
-    Auto-regenerates audio if power cut corrupted the audio file.
+    Reuses existing audio.mp3, subtitle.srt, and script.json if valid, or auto-generates missing parts.
     """
     logger.info(f"🔄 Resuming unfinished task: {task_id}")
     task_dir = path.join(utils.root_dir(), "storage", "tasks", task_id)
@@ -541,8 +539,8 @@ def resume_task(task_id: str) -> dict:
     subtitle_path = path.join(task_dir, "subtitle.srt")
     script_p = path.join(task_dir, "script.json")
 
-    subject = "Resumed Video"
-    terms = "mysterious, dark, aesthetic"
+    subject = "5 Most Disturbing & Mysterious Places on Earth"
+    terms = "mysterious, dark, aesthetic, scary places"
     video_script = ""
     aspect_ratio = "portrait"
     voice_name = "en-US-ChristopherNeural"
@@ -569,21 +567,24 @@ def resume_task(task_id: str) -> dict:
         voice_name=voice_name,
     )
 
+    # 1. Ensure valid script exists
     if not video_script or len(video_script.strip()) < 10:
-        logger.info(f"📝 Script missing or empty in task {task_id}. Auto-generating video script...")
-        video_script = generate_script(task_id, params)
+        logger.info(f"📝 Script missing in task {task_id}. Generating script for '{subject}'...")
+        video_script = llm.generate_script(video_subject=subject, language="")
         params.video_script = video_script
+        terms = llm.generate_terms(subject, video_script)
+        params.video_terms = ", ".join(terms) if terms else terms
+        save_script_data(task_id, video_script, params.video_terms, params)
 
-    # Check audio file validity — if missing or corrupted (<5KB), auto-generate TTS
+    # 2. Ensure valid audio.mp3 (>5KB) exists
     valid_audio = path.exists(audio_file) and path.getsize(audio_file) > 5000
     if not valid_audio:
-        logger.info(f"🔊 Audio file missing or corrupted in task {task_id}. Auto-generating TTS audio...")
+        logger.info(f"🔊 Audio file missing/corrupted in task {task_id}. Generating audio...")
         audio_file, audio_duration, sub_maker = generate_audio(task_id, params, video_script)
-        if not subtitle_path or not path.exists(subtitle_path):
-            subtitle_path = generate_subtitle(task_id, params, video_script, sub_maker, audio_file)
+        subtitle_path = generate_subtitle(task_id, params, video_script, sub_maker, audio_file)
 
     audio_duration = 30.0
-    if path.exists(audio_file):
+    if path.exists(audio_file) and path.getsize(audio_file) > 5000:
         try:
             from moviepy.audio.io.AudioFileClip import AudioFileClip
             ac = AudioFileClip(audio_file)
@@ -592,8 +593,9 @@ def resume_task(task_id: str) -> dict:
         except Exception as ac_err:
             logger.warning(f"Audio duration check error: {ac_err}")
 
+    # 3. Fetch 4K background materials & render final video
     downloaded_videos = get_video_materials(
-        task_id, params, terms, audio_duration
+        task_id, params, params.video_terms, audio_duration
     )
     if not downloaded_videos:
         raise RuntimeError(f"Could not fetch background videos for resumed task {task_id}")
