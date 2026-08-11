@@ -138,10 +138,12 @@ def download_media_from_url(url: str, output_dir: str = "") -> dict:
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            raw_title   = info.get('title', '')
-            duration_yt = info.get('duration', 0)
-            extractor   = info.get('extractor_key', 'Generic')
-            description = info.get('description', '')
+            if not info:
+                raise RuntimeError("Could not fetch video. Please ensure the URL is a valid, active public video.")
+            raw_title   = info.get('title', '') if isinstance(info, dict) else ''
+            duration_yt = info.get('duration', 0) if isinstance(info, dict) else 0
+            extractor   = info.get('extractor_key', 'Generic') if isinstance(info, dict) else 'Generic'
+            description = info.get('description', '') if isinstance(info, dict) else ''
 
         # Find the downloaded video file
         video_file = None
