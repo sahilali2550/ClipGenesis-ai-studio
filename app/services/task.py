@@ -495,7 +495,10 @@ def get_unfinished_tasks() -> list:
             
             # Check if MP4 output file exists
             mp4_files = [f for f in os.listdir(folder_path) if f.endswith(".mp4") and not f.startswith("raw_")]
-            if (path.exists(audio_p) or path.exists(script_p)) and not mp4_files:
+            valid_audio = path.exists(audio_p) and path.getsize(audio_p) > 5000
+            valid_script = path.exists(script_p) and path.getsize(script_p) > 20
+
+            if (valid_audio or valid_script) and not mp4_files:
                 subject = "Interrupted Task"
                 terms = ""
                 if path.exists(script_p):
@@ -513,7 +516,7 @@ def get_unfinished_tasks() -> list:
                     "task_id": item,
                     "subject": subject,
                     "folder_path": folder_path,
-                    "audio_file": audio_p if path.exists(audio_p) else "",
+                    "audio_file": audio_p if valid_audio else "",
                     "srt_file": srt_p if path.exists(srt_p) else "",
                     "terms": terms,
                     "created_at": dt_str,
@@ -527,6 +530,7 @@ def resume_task(task_id: str) -> dict:
     """
     Resume an interrupted video generation task:
     Reuses existing audio.mp3, subtitle.srt, and script.json without calling LLM or TTS again.
+    Auto-regenerates audio if power cut corrupted the audio file.
     """
     logger.info(f"🔄 Resuming unfinished task: {task_id}")
     task_dir = path.join(utils.root_dir(), "storage", "tasks", task_id)
@@ -541,6 +545,7 @@ def resume_task(task_id: str) -> dict:
     terms = "mysterious, dark, aesthetic"
     video_script = ""
     aspect_ratio = "portrait"
+    voice_name = "en-US-ChristopherNeural"
 
     if path.exists(script_p):
         try:
@@ -550,18 +555,9 @@ def resume_task(task_id: str) -> dict:
                 terms = s_data.get("video_terms") or terms
                 video_script = s_data.get("video_script") or ""
                 aspect_ratio = s_data.get("video_aspect") or "portrait"
+                voice_name = s_data.get("voice_name") or voice_name
         except Exception as e:
             logger.warning(f"Resume script parse warning: {e}")
-
-    audio_duration = 30.0
-    if path.exists(audio_file):
-        try:
-            from moviepy.audio.io.AudioFileClip import AudioFileClip
-            ac = AudioFileClip(audio_file)
-            audio_duration = ac.duration
-            ac.close()
-        except Exception:
-            pass
 
     params = VideoParams(
         video_subject=subject,
@@ -570,7 +566,31 @@ def resume_task(task_id: str) -> dict:
         video_aspect=VideoAspect(aspect_ratio),
         video_concat_mode=VideoConcatMode.random,
         video_source="hybrid",
+        voice_name=voice_name,
     )
+
+    if not video_script or len(video_script.strip()) < 10:
+        logger.info(f"📝 Script missing or empty in task {task_id}. Auto-generating video script...")
+        video_script = generate_script(task_id, params)
+        params.video_script = video_script
+
+    # Check audio file validity — if missing or corrupted (<5KB), auto-generate TTS
+    valid_audio = path.exists(audio_file) and path.getsize(audio_file) > 5000
+    if not valid_audio:
+        logger.info(f"🔊 Audio file missing or corrupted in task {task_id}. Auto-generating TTS audio...")
+        audio_file, audio_duration, sub_maker = generate_audio(task_id, params, video_script)
+        if not subtitle_path or not path.exists(subtitle_path):
+            subtitle_path = generate_subtitle(task_id, params, video_script, sub_maker, audio_file)
+
+    audio_duration = 30.0
+    if path.exists(audio_file):
+        try:
+            from moviepy.audio.io.AudioFileClip import AudioFileClip
+            ac = AudioFileClip(audio_file)
+            audio_duration = ac.duration
+            ac.close()
+        except Exception as ac_err:
+            logger.warning(f"Audio duration check error: {ac_err}")
 
     downloaded_videos = get_video_materials(
         task_id, params, terms, audio_duration
