@@ -525,7 +525,7 @@ def recreate_video_from_url(
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_txt,
         "-t", str(round(duration, 2)),
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-r", "30",
         "-vf", scale_vf, "-an", raw_bg,
     ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
