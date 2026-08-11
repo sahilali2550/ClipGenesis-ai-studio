@@ -463,10 +463,16 @@ def combine_videos(
         subclipped_items = []
         video_duration = 0
         for video_path in video_paths:
-            clip = VideoFileClip(video_path)
-            clip_duration = clip.duration
-            clip_w, clip_h = clip.size
-            close_clip(clip)
+            try:
+                if not os.path.exists(video_path) or os.path.getsize(video_path) < 5000:
+                    continue
+                clip = VideoFileClip(video_path)
+                clip_duration = clip.duration
+                clip_w, clip_h = clip.size
+                close_clip(clip)
+            except Exception as clip_err:
+                logger.warning(f"Skipping corrupted background clip {video_path}: {clip_err}")
+                continue
             
             start_time = 0
 
