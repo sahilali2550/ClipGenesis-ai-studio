@@ -8,13 +8,17 @@ from uuid import uuid4
 import streamlit as st
 try:
     import streamlit.watcher.local_sources_watcher as _lsw
-    _orig_get_module_paths = _lsw.get_module_paths
-    def _safe_get_module_paths(module):
+    def _safe_extract_paths(module):
         try:
-            return _orig_get_module_paths(module)
+            p = getattr(module, "__path__", None)
+            if p is not None and hasattr(p, "_path"):
+                return list(p._path)
+            elif p is not None:
+                return list(p)
         except Exception:
-            return set()
-    _lsw.get_module_paths = _safe_get_module_paths
+            pass
+        return []
+    _lsw.extract_paths = _safe_extract_paths
 except Exception:
     pass
 from loguru import logger
