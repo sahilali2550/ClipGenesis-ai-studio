@@ -497,27 +497,38 @@ def recreate_video_from_url(
                 audio_duration=duration,
                 task_dir=output_dir_9r,
             )
-            bg_paths = [p for p in nine_paths if p and os.path.exists(p)]
             if bg_paths:
                 logger.success(f"🤖 9Router produced {len(bg_paths)} background clip(s)")
             else:
-                logger.warning("🤖 9Router returned no clips — falling back to Pexels")
+                logger.warning("🤖 9Router returned no clips — generating 100% pure AI image clips (Strict AI Mode)")
         except Exception as nine_err:
-            logger.warning(f"🤖 9Router error: {nine_err} — falling back to Pexels")
+            logger.warning(f"🤖 9Router error: {nine_err} — generating 100% pure AI image clips")
 
-    # ── Standard stock footage (Pexels / Pixabay) + 9Router fallback ──────────
-    # 💡 Future sources: add new elif branches here before the fallback block.
+    # ── Standard stock footage (Pexels / Pixabay) ──────────
     if not bg_paths:
-        _src = "pexels" if video_source not in ("pixabay",) else video_source
-        logger.info(f"Fetching stock background via source='{_src}' | terms={search_terms}")
-        bg_paths = material.download_videos(
-            task_id=task_ts,
-            search_terms=search_terms,
-            video_aspect=video_aspect_enum,
-            video_contact_mode=VideoConcatMode.random,
-            audio_duration=duration,
-            source=_src,
-        )
+        if video_source == "9router":
+            logger.info("🎨 Generating 100% Pure Script-Tailored AI Images (No Pexels Stock Videos Allowed)")
+            from app.services.material import download_videos
+            # Pass source="9router" to ensure fallback AI images are generated without stock footage
+            bg_paths = download_videos(
+                task_id=task_ts,
+                search_terms=search_terms,
+                video_aspect=video_aspect_enum,
+                video_contact_mode=VideoConcatMode.random,
+                audio_duration=duration,
+                source="9router",
+            )
+        else:
+            _src = "pexels" if video_source not in ("pixabay",) else video_source
+            logger.info(f"Fetching stock background via source='{_src}' | terms={search_terms}")
+            bg_paths = material.download_videos(
+                task_id=task_ts,
+                search_terms=search_terms,
+                video_aspect=video_aspect_enum,
+                video_contact_mode=VideoConcatMode.random,
+                audio_duration=duration,
+                source=_src,
+            )
         bg_paths = [p for p in bg_paths if p and os.path.exists(p)]
 
     if not bg_paths:

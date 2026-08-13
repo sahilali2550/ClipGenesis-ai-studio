@@ -609,7 +609,11 @@ def download_videos(
     if video_contact_mode.value == VideoConcatMode.random.value:
         random.shuffle(valid_video_items)
     
-    logger.info(f"selected {len(valid_video_items)} videos for download with balanced representation")
+    if source == "9router":
+        logger.info("🎨 Source is '9router' — Bypassing stock video download to generate 100% Pure Script-Tailored AI Images")
+        valid_video_items = []
+    else:
+        logger.info(f"selected {len(valid_video_items)} videos for download with balanced representation")
     
     # Log diversity metrics
     logger.info("🎯 Diversity metrics:")
