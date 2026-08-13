@@ -1300,7 +1300,14 @@ def tts(
                 except Exception as ex:
                     logger.error(f"Failed to concatenate dialogue audio: {str(ex)}")
 
-    if is_azure_v2_voice(voice_name):
+    if voice_name.startswith("custom_voice_") or voice_name.startswith("cloned:"):
+        voice_id = voice_name.replace("cloned:", "").strip()
+        from app.services import voice_cloner
+        out_mp3, duration, sub_maker = voice_cloner.generate_cloned_tts(
+            voice_id=voice_id, script_text=text, output_mp3=voice_file
+        )
+        return ensure_submaker_compatibility(sub_maker)
+    elif is_azure_v2_voice(voice_name):
         return azure_tts_v2(text, voice_name, voice_file)
     elif is_siliconflow_voice(voice_name):
         parts = voice_name.split(":")

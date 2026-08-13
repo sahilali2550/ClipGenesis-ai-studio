@@ -1066,10 +1066,30 @@ def render_single_video():
                     if selected_tts_server == "azure-tts-v2":
                         if "V2" in v:
                             filtered_voices.append(v)
-                    else:
                         if "V2" not in v:
                             filtered_voices.append(v)
-            friendly_names = {v: v.replace("Female", tr("Female")).replace("Male", tr("Male")).replace("Neural", "") for v in filtered_voices}
+            try:
+                from app.services import voice_cloner
+                cloned_voices = voice_cloner.get_cloned_voices()
+                for cv in reversed(cloned_voices):
+                    c_id = cv.get('voice_id')
+                    if c_id not in filtered_voices:
+                        filtered_voices.insert(0, c_id)
+            except Exception:
+                cloned_voices = []
+
+            friendly_names = {}
+            for v in filtered_voices:
+                if v.startswith("custom_voice_"):
+                    # Find matching name from cloned_voices
+                    matched_name = v
+                    for cv in cloned_voices:
+                        if cv.get('voice_id') == v:
+                            matched_name = f"🎙️ Cloned: {cv.get('name')} ({cv.get('language', 'ur').upper()})"
+                            break
+                    friendly_names[v] = matched_name
+                else:
+                    friendly_names[v] = v.replace("Female", tr("Female")).replace("Male", tr("Male")).replace("Neural", "")
             saved_voice_name = config.ui.get("voice_name", "")
             saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name) if saved_voice_name in friendly_names else 0
             if friendly_names:

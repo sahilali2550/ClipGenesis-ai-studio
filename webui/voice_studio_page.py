@@ -9,10 +9,11 @@ from app.utils import utils
 
 def render_voice_studio_page():
     """Render the AI Voice Studio & Dubbing Workspace."""
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "⚡ Fast Audio Generator (Kokoro-82M)",
         "🎧 Audio & Video Dubbing",
         "🎭 Multi-Speaker Podcast Creator",
+        "🎙️ Zero-Shot AI Voice Cloner & Saved Library",
     ])
 
     # ── TAB 1: Fast Audio Generator ───────────────────────────────────────────
@@ -224,3 +225,73 @@ def render_voice_studio_page():
                     st.audio(podcast_wav)
                 else:
                     st.error("Failed to generate dialogue audio.")
+
+    # ── TAB 4: Zero-Shot AI Voice Cloner & Saved Library ──────────────────────
+    with tab4:
+        st.markdown("### 🎙️ Zero-Shot AI Voice Cloner & Permanent Library")
+        st.info("💡 Upload or record a 5-10s voice sample. ClipGenesis will clone the pitch & timbre and save the voice profile permanently for 1-click reuse across all video studios!")
+
+        from app.services import voice_cloner
+
+        col_c1, col_c2 = st.columns([1, 1])
+
+        with col_c1:
+            st.markdown("#### 💾 Clone & Save New Voice Profile")
+            v_name = st.text_input("Voice Profile Name", value="My Urdu Voice", placeholder="e.g. My Urdu Voice, Sufi Narrator, News Anchor")
+            v_lang = st.selectbox("Primary Language", options=["Urdu (اردو)", "English", "Hindi", "Arabic"], index=0)
+            
+            uploaded_sample = st.file_uploader("Upload 5-10s Sample Audio (MP3 / WAV)", type=["mp3", "wav", "m4a", "ogg"])
+            
+            if st.button("💾 Clone & Save Voice Profile", type="primary", use_container_width=True):
+                if not uploaded_sample:
+                    st.warning("⚠️ Please upload a 5-10s sample audio file first!")
+                elif not v_name.strip():
+                    st.warning("⚠️ Please enter a voice profile name!")
+                else:
+                    with st.spinner("⚡ Analyzing acoustic timbre & saving cloned voice profile..."):
+                        audio_bytes = uploaded_sample.read()
+                        meta = voice_cloner.save_cloned_voice(
+                            profile_name=v_name.strip(),
+                            audio_bytes=audio_bytes,
+                            filename=uploaded_sample.name,
+                            language=v_lang.split(" ")[0].lower()
+                        )
+                        st.success(f"🎉 Voice Profile '{meta['name']}' saved permanently!")
+                        st.rerun()
+
+        with col_c2:
+            st.markdown("#### 📚 Saved Voice Library")
+            saved_voices = voice_cloner.get_cloned_voices()
+            st.metric("Total Saved Custom Voices", len(saved_voices))
+
+            if not saved_voices:
+                st.info("No custom voices saved yet. Upload a 5-10s sample audio on the left to clone your first voice!")
+            else:
+                for v in saved_voices:
+                    with st.expander(f"🎙️ {v.get('name', 'Custom Voice')} (`{v.get('voice_id')}`)", expanded=True):
+                        st.write(f"**Language:** `{v.get('language')}` | **Created:** `{v.get('created_at')}`")
+                        s_path = v.get("sample_path", "")
+                        if s_path and os.path.exists(s_path):
+                            st.audio(s_path, format="audio/mp3")
+
+                        c_del, c_test = st.columns([1, 2])
+                        with c_del:
+                            if st.button("🗑️ Delete Voice", key=f"del_v_{v.get('voice_id')}"):
+                                voice_cloner.delete_cloned_voice(v.get('voice_id'))
+                                st.success("Deleted voice profile!")
+                                st.rerun()
+
+                        with c_test:
+                            test_text = st.text_input("Test Speech Text", value="السلام علیکم! یہ میری اپنی کلون کی گئی آواز کا پیش نظارہ ہے۔", key=f"t_in_{v.get('voice_id')}")
+                            if st.button("▶️ Test Cloned Speech", key=f"btn_test_{v.get('voice_id')}"):
+                                out_dir = os.path.join(utils.root_dir(), "storage", "temp_voice_studio")
+                                os.makedirs(out_dir, exist_ok=True)
+                                test_mp3 = os.path.join(out_dir, f"test_{v.get('voice_id')}.mp3")
+                                with st.spinner("Generating test speech with cloned voice..."):
+                                    voice_cloner.generate_cloned_tts(
+                                        voice_id=v.get('voice_id'),
+                                        script_text=test_text,
+                                        output_mp3=test_mp3
+                                    )
+                                if os.path.exists(test_mp3):
+                                    st.audio(test_mp3)
