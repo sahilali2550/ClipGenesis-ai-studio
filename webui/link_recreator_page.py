@@ -57,6 +57,62 @@ def render_link_recreator_page():
                 key="url_enable_subtitles"
             )
 
+            subtitle_style = "gold"
+            if enable_subtitles:
+                sub_style_options = [
+                    ("🌟 Golden Yellow Karaoke (سنہری پیلا)", "gold"),
+                    ("⚡ Neon Cyan Glow (نیون فیروزی)",     "cyan"),
+                    ("🤍 Clean White & Shadow (کلاسک وائٹ)", "white"),
+                    ("💚 Emerald Green Reel (زمردی سبز)",    "green"),
+                ]
+                sel_sub_idx = st.selectbox(
+                    "🎨 Subtitle Style & Color",
+                    options=range(len(sub_style_options)),
+                    format_func=lambda x: sub_style_options[x][0],
+                    index=0,
+                    key="url_subtitle_style"
+                )
+                subtitle_style = sub_style_options[sel_sub_idx][1]
+
+            # Audio Mode: Keep Original vs AI Voice Dubbing
+            dub_options = [
+                ("🎵 Keep Original Video Audio (اصل ویڈیو کی آواز)", "original"),
+                ("🎙️ AI Voice / Cloned Voice Dubbing (آواز تبدیل کریں)", "ai_voice"),
+            ]
+            sel_dub_idx = st.selectbox(
+                "🎙️ Audio & Voice Mode (آواز کا انتخاب)",
+                options=range(len(dub_options)),
+                format_func=lambda x: dub_options[x][0],
+                index=0,
+                key="url_dub_mode"
+            )
+            dub_mode = dub_options[sel_dub_idx][1]
+            selected_voice = ""
+
+            if dub_mode == "ai_voice":
+                from app.services import voice, voice_cloner
+                voice_options = voice.get_all_azure_voices()
+                cloned_v = voice_cloner.get_cloned_voices()
+                
+                v_display_map = {}
+                for cv in reversed(cloned_v):
+                    c_id = cv.get('voice_id')
+                    c_label = f"🎙️ Cloned: {cv.get('name')} ({cv.get('language', 'ur').upper()})"
+                    v_display_map[c_id] = c_label
+                    if c_id not in voice_options:
+                        voice_options.insert(0, c_id)
+
+                for vo in voice_options:
+                    if vo not in v_display_map:
+                        v_display_map[vo] = vo.replace("Female", "Female").replace("Male", "Male").replace("Neural", "")
+
+                selected_voice = st.selectbox(
+                    "Choose AI / Cloned Voice",
+                    options=voice_options,
+                    format_func=lambda x: v_display_map.get(x, x),
+                    key="url_selected_voice"
+                )
+
             # ── Video Source ──────────────────────────────────────────────────
             _src_options = [
                 ("🔥 Ultimate Hybrid (Pexels + Pixabay + Coverr + Mixkit + Videvo — Max 4K)", "hybrid"),
@@ -149,6 +205,8 @@ def render_link_recreator_page():
                             video_source=video_source,
                             enable_copyright_shield=enable_shield,
                             enable_subtitles=enable_subtitles,
+                            subtitle_style=subtitle_style,
+                            selected_voice=selected_voice,
                             logo_path=logo_path,
                         )
                         st.session_state["last_recreated_video"] = out_path

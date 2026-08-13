@@ -436,6 +436,8 @@ def recreate_video_from_url(
     video_source: str = "pexels",   # "pexels" | "pixabay" | "9router"
     enable_copyright_shield: bool = True,
     enable_subtitles: bool = False,
+    subtitle_style: str = "gold",
+    selected_voice: str = "",
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
@@ -454,8 +456,35 @@ def recreate_video_from_url(
     caption_text = media_info.get("caption_text", "")
     duration     = media_info["duration"]
 
-    # Apply 100% Anti-Copyright Protection Shield
-    if enable_copyright_shield:
+    # Apply AI Voice Dubbing OR 100% Anti-Copyright Protection Shield
+    if selected_voice:
+        logger.info(f"🎙️ Dubbing video with AI Voice / Cloned Voice: {selected_voice}")
+        try:
+            from app.services import subtitle, voice
+            srt_tmp = os.path.join(output_dir, f"trans_{int(time.time())}.srt")
+            subtitle.create(audio_file=raw_audio, subtitle_file=srt_tmp)
+            
+            # Extract transcript text
+            full_text = clean_title
+            if os.path.exists(srt_tmp):
+                with open(srt_tmp, "r", encoding="utf-8") as sf:
+                    lines = [l.strip() for l in sf.readlines() if l.strip() and not l.strip().isdigit() and "-->" not in l]
+                    if lines:
+                        full_text = " ".join(lines)
+            
+            dub_audio = os.path.join(output_dir, f"dub_{int(time.time())}.mp3")
+            voice.tts(text=full_text, voice_name=selected_voice, voice_rate=1.0, voice_file=dub_audio)
+            if os.path.exists(dub_audio) and os.path.getsize(dub_audio) > 1000:
+                audio_path = dub_audio
+                logger.success(f"🎙️ AI Dubbing generated successfully: {dub_audio}")
+            elif enable_copyright_shield:
+                audio_path = apply_anticopyright_audio_shield(raw_audio, asmrsound_enabled=True)
+            else:
+                audio_path = raw_audio
+        except Exception as dub_err:
+            logger.warning(f"AI Dubbing error: {dub_err}. Falling back to original audio.")
+            audio_path = apply_anticopyright_audio_shield(raw_audio, asmrsound_enabled=True) if enable_copyright_shield else raw_audio
+    elif enable_copyright_shield:
         audio_path = apply_anticopyright_audio_shield(raw_audio, asmrsound_enabled=True)
     else:
         audio_path = raw_audio
@@ -584,9 +613,19 @@ def recreate_video_from_url(
                 subtitle_file=srt_path
             )
             if os.path.exists(srt_path):
-                # Burn SRT into video using FFmpeg vf filter
+                # Burn SRT into video using FFmpeg vf filter with selected subtitle_style
                 srt_escaped = srt_path.replace("\\", "/").replace(":", "\\:")
-                sub_vf = f"subtitles='{srt_escaped}':force_style='FontSize=22,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=2'"
+                
+                # Primary Colour in ASS format: &H00BBGGRR
+                color_map = {
+                    "gold":  "&H0000FFFF",  # Bright Yellow (RGB: 255, 255, 0)
+                    "cyan":  "&H00FFFF00",  # Neon Cyan (RGB: 0, 255, 255)
+                    "white": "&H00FFFFFF",  # Pure White (RGB: 255, 255, 255)
+                    "green": "&H0000FF00",  # Emerald Green (RGB: 0, 255, 0)
+                }
+                primary_color = color_map.get(subtitle_style, "&H0000FFFF")
+
+                sub_vf = f"subtitles='{srt_escaped}':force_style='FontSize=22,PrimaryColour={primary_color},OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=2'"
                 subprocess.run([
                     "ffmpeg", "-y",
                     "-i", no_sub,
@@ -594,7 +633,7 @@ def recreate_video_from_url(
                     "-c:a", "copy",
                     final_output
                 ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                logger.success("🔤 Subtitles burned into recreated video!")
+                logger.success(f"🔤 Subtitles ({subtitle_style}) burned into recreated video!")
             else:
                 shutil.copy2(no_sub, final_output)
         except Exception as sub_err:
