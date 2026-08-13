@@ -435,6 +435,7 @@ def recreate_video_from_url(
     aspect_ratio: str = "portrait",
     video_source: str = "pexels",   # "pexels" | "pixabay" | "9router"
     enable_copyright_shield: bool = True,
+    enable_subtitles: bool = False,
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
@@ -565,11 +566,40 @@ def recreate_video_from_url(
         "-shortest", no_sub,
     ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # 7. Output — clean video (audio + background, no text overlay)
+    # 7. Output — clean video or subtitle overlay
     if not output_filename:
         output_filename = f"recreated_{ts}.mp4"
     final_output = os.path.join(output_dir, output_filename)
-    shutil.copy2(no_sub, final_output)
+
+    if enable_subtitles:
+        logger.info("🔤 Generating Dynamic Subtitles Overlay...")
+        try:
+            srt_path = os.path.join(output_dir, f"sub_{ts}.srt")
+            # Generate SRT subtitle from audio transcript using Whisper
+            from app.services import subtitle
+            subtitle.generate_subtitle(
+                audio_file=audio_path,
+                output_srt_path=srt_path
+            )
+            if os.path.exists(srt_path):
+                # Burn SRT into video using FFmpeg vf filter
+                srt_escaped = srt_path.replace("\\", "/").replace(":", "\\:")
+                sub_vf = f"subtitles='{srt_escaped}':force_style='FontSize=22,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=2'"
+                subprocess.run([
+                    "ffmpeg", "-y",
+                    "-i", no_sub,
+                    "-vf", sub_vf,
+                    "-c:a", "copy",
+                    final_output
+                ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                logger.success("🔤 Subtitles burned into recreated video!")
+            else:
+                shutil.copy2(no_sub, final_output)
+        except Exception as sub_err:
+            logger.warning(f"Subtitle overlay warning: {sub_err}. Saving clean video.")
+            shutil.copy2(no_sub, final_output)
+    else:
+        shutil.copy2(no_sub, final_output)
 
     # 8. Cleanup temp files
     for tmp in [list_txt, raw_bg, no_sub]:

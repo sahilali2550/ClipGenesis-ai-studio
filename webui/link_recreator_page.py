@@ -49,6 +49,14 @@ def render_link_recreator_page():
                 key="url_copyright_shield"
             )
 
+            # Automatic Subtitles Overlay Checkbox
+            enable_subtitles = st.checkbox(
+                "🔤 Enable Dynamic Auto-Subtitles Overlay (آن اسکرین سب ٹائٹلز)",
+                value=False,
+                help="Automatically extracts audio transcript and overlays animated karaoke subtitles on top of the video.",
+                key="url_enable_subtitles"
+            )
+
             # ── Video Source ──────────────────────────────────────────────────
             _src_options = [
                 ("🔥 Ultimate Hybrid (Pexels + Pixabay + Coverr + Mixkit + Videvo — Max 4K)", "hybrid"),
@@ -140,6 +148,7 @@ def render_link_recreator_page():
                             aspect_ratio=aspect,
                             video_source=video_source,
                             enable_copyright_shield=enable_shield,
+                            enable_subtitles=enable_subtitles,
                             logo_path=logo_path,
                         )
                         st.session_state["last_recreated_video"] = out_path
