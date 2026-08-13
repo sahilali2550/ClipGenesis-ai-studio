@@ -657,11 +657,11 @@ def download_videos(
             logger.error(f"failed to download video: {utils.to_json(item)} => {str(e)}")
     
     target_duration = min(audio_duration, 120.0)
-    if not video_paths or total_duration < target_duration:
-        needed_duration = target_duration - total_duration
+    if not video_paths:
+        needed_duration = target_duration
         import math
         needed_clips = math.ceil(needed_duration / max_clip_duration)
-        logger.warning(f"Video assets short by {needed_duration:.2f}s. Generating {needed_clips} fallback AI images...")
+        logger.warning(f"No video assets found. Generating {needed_clips} fallback AI images...")
         
         import urllib.parse
         import uuid

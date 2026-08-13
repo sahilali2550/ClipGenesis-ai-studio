@@ -21,6 +21,7 @@ from app.models.schema import VideoAspect, VideoConcatMode
 
 # ── 15 Master Theme Categories ─────────────────────────────────────────
 THEME_SEARCH_MAP = {
+    "smart_auto_match": ["smart_auto_match"],
     "kaaba":          ["kaaba mecca aerial", "grand mosque mecca tawaf"],
     "madinah":        ["green dome madinah", "al masjid an nabawi aerial"],
     "mosque":         ["mosque interior dome", "masjid architecture interior"],
@@ -123,8 +124,13 @@ def download_media_from_url(url: str, output_dir: str = "") -> dict:
         output_dir = os.path.join(utils.root_dir(), "storage", "url_downloads")
     os.makedirs(output_dir, exist_ok=True)
 
+    # Clean and extract pure HTTP/HTTPS URL from any markdown/text format
+    url_match = re.search(r'https?://[^\s<">]+', url)
+    if url_match:
+        url = url_match.group(0)
+    url = url.strip().rstrip(')]>"\'')
+
     timestamp = int(time.time())
-    # Download best video+audio combined (avoids truncated audio-only streams)
     out_tmpl = os.path.join(output_dir, f"media_{timestamp}.%(ext)s")
 
     ydl_opts = {
@@ -132,7 +138,8 @@ def download_media_from_url(url: str, output_dir: str = "") -> dict:
         'outtmpl': out_tmpl,
         'quiet': True,
         'no_warnings': True,
-        'ignoreerrors': True,
+        'nocheckcertificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
     try:
@@ -454,7 +461,13 @@ def recreate_video_from_url(
     logger.info(f"🎵 Audio duration: {duration:.1f}s  |  Title: {clean_title}")
 
     # 2. Build search terms from theme map
-    search_terms = THEME_SEARCH_MAP.get(background_theme, [background_theme])
+    if background_theme == "smart_auto_match":
+        search_terms = [clean_title]
+        if caption_text:
+            search_terms.extend([line.strip() for line in caption_text.split("\n") if line.strip()][:3])
+        logger.info(f"✨ Smart Auto-Match derived search terms: {search_terms}")
+    else:
+        search_terms = THEME_SEARCH_MAP.get(background_theme, [background_theme])
 
     # 3. Resolve dimensions
     vid_w, vid_h       = (1080, 1920) if aspect_ratio == "portrait" else (1920, 1080)

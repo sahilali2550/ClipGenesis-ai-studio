@@ -174,6 +174,7 @@ def render_darood_video_page():
             col_t1, col_t2 = st.columns(2)
             with col_t1:
                 theme_options = [
+                    ("smart_auto_match", "✨ Smart Auto-Match (Videos as Script Requirements + 9Router AI)"),
                     ("madinah",        "🕌 Madinah & Green Dome (مدینہ منورہ)"),
                     ("kaaba",          "🕋 Kaaba / Mecca (مکہ مکرمہ)"),
                     ("mosque",         "🏛️ Mosque Interior & Architecture (مسجد)"),

@@ -74,11 +74,12 @@ def render_link_recreator_page():
             bg_theme = st.selectbox(
                 "Background Video Theme",
                 options=[
-                    "kaaba", "madinah", "mosque", "quran", "rain", "ocean",
+                    "smart_auto_match", "kaaba", "madinah", "mosque", "quran", "rain", "ocean",
                     "nature", "dark_aesthetic", "autumn", "snow", "space",
                     "candle", "driving", "city"
                 ],
                 format_func=lambda x: {
+                    "smart_auto_match": "✨ Smart Auto-Match (Videos as Script Requirements + 9Router AI)",
                     "kaaba":          "🕋 Kaaba / Mecca (مکہ مکرمہ)",
                     "madinah":        "🕌 Madinah & Green Dome (مدینہ منورہ)",
                     "mosque":         "🏛️ Mosque Interior & Architecture (مسجد)",
@@ -94,6 +95,7 @@ def render_link_recreator_page():
                     "driving":        "🚗 Driving POV & Rainy Highway (ڈرائیونگ)",
                     "city":           "🏙️ City Lights & Night Timelapse (نائٹ سٹی)",
                 }.get(x, x),
+                index=0,
                 key="url_bg_theme",
             )
 
