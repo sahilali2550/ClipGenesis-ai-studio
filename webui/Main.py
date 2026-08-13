@@ -1853,8 +1853,11 @@ def render_create_video_page():
         render_ai_image_studio_page()
     elif "Batch" in sub_mode:
         render_batch_generation()
-    elif "Voice" in sub_mode:
-        render_voice_studio_page()
+    elif "Voice" in sub_mode or "Clone" in sub_mode:
+        import importlib
+        from webui import voice_studio_page
+        importlib.reload(voice_studio_page)
+        voice_studio_page.render_voice_studio_page()
 
 
 def render_assets_page():
