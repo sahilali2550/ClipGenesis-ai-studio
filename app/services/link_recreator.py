@@ -496,8 +496,10 @@ def recreate_video_from_url(
                 search_terms=enriched_terms,
                 video_aspect=video_aspect_enum,
                 audio_duration=duration,
+                max_clip_duration=3.5,
                 task_dir=output_dir_9r,
             )
+            bg_paths = [p for p in nine_paths if p and os.path.exists(p)]
             if bg_paths:
                 logger.success(f"🤖 9Router produced {len(bg_paths)} background clip(s)")
             else:
@@ -577,9 +579,9 @@ def recreate_video_from_url(
             srt_path = os.path.join(output_dir, f"sub_{ts}.srt")
             # Generate SRT subtitle from audio transcript using Whisper
             from app.services import subtitle
-            subtitle.generate_subtitle(
+            subtitle.create(
                 audio_file=audio_path,
-                output_srt_path=srt_path
+                subtitle_file=srt_path
             )
             if os.path.exists(srt_path):
                 # Burn SRT into video using FFmpeg vf filter
