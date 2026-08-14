@@ -1984,6 +1984,13 @@ PAGE_MAP = {
 # Render Global Unfinished Task Banner at the very top of the app
 render_unfinished_task_banner()
 
+# ── Render AI Copilot Brain Floating Widget ─────────────────────────────────
+try:
+    from webui.copilot_widget import render_copilot_widget
+    render_copilot_widget(current_page)
+except Exception as _cp_err:
+    logger.warning(f"Copilot Widget render notice: {_cp_err}")
+
 if current_page in PAGE_MAP:
     PAGE_MAP[current_page]()
 
