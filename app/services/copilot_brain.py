@@ -1,10 +1,11 @@
 """
-app/services/copilot_brain.py — ClipGenesis Master AI Copilot Brain & Power-Cut Checkpoint Engine
+app/services/copilot_brain.py — ClipGenesis Master AI Copilot Brain & Autonomous Intent Engine
 Manages 10-Agent Autonomous Swarm, persistent disk memory (storage/copilot_brain_state.json),
-auto-resume checkpoints after PC power loss, and 9Router Multi-Model Team interaction.
+auto-resume checkpoints after PC power loss, 9Router Multi-Model interaction, and direct video creation triggers.
 """
 
 import os
+import re
 import json
 import glob
 import time
@@ -37,6 +38,12 @@ _FALLBACK_MODEL_CHAIN = [
     "freellm/gpt-oss-20b",
 ]
 
+SURAH_NAME_MAP = {
+    "fatiha": 1, "baqarah": 2, "yasin": 36, "yaseen": 36, "rahman": 55,
+    "mulk": 67, "kahf": 18, "waqiah": 56, "ikhlas": 112, "falaq": 113,
+    "nas": 114, "naas": 114, "kafirun": 109, "nasr": 110, "masad": 111,
+}
+
 
 def _get_ninerouter_api_key() -> str:
     """Reads 9Router API key from config.toml (openai_api_key field)."""
@@ -67,13 +74,14 @@ def load_brain_memory() -> Dict[str, Any]:
                 "role": "assistant",
                 "content": (
                     "👋 سلام! میں ClipGenesis AI Copilot Brain (CEO Agent) ہوں۔ "
-                    "9Router کی 10-Agent ٹیم کے ساتھ حاضر ہوں۔ "
-                    "Script، image style، آواز، یا ویڈیو سیٹنگز کے بارے میں پوچھیں!"
+                    "میں 10-Agent Swarm کے ساتھ ڈائریکٹ جڑا ہوا ہوں۔ "
+                    "مجھے ویڈیو بنانے کا آرڈر دیں (مثلاً: *'Surah 112 ki video bana do'* یا *'5 Mysterious Places ki reel banao'*), "
+                    "اور میں فوراً ویڈیو پروسیس کر دوں گا!"
                 )
             }
         ],
         "user_preferences": {
-            "default_model": "openai_fast",
+            "default_model": "ag_flash_low",
             "language": "ur"
         },
         "total_tasks_completed": 0
@@ -156,7 +164,68 @@ def clear_checkpoint(task_id: str):
             pass
 
 
-# ── 2. Swarm System Status ──────────────────────────────────────────────────
+# ── 2. Autonomous Intent Parser ─────────────────────────────────────────────
+
+def parse_autonomous_intent(user_prompt: str) -> Optional[Dict[str, Any]]:
+    """
+    Parses user prompt for autonomous execution actions (e.g. creating Quran videos or General videos).
+    """
+    low = user_prompt.lower()
+    
+    # 1. Check for Quran Video creation intent
+    is_video_cmd = any(w in low for w in ["bana", "make", "create", "generate", "banao", "reel", "video"])
+    
+    if is_video_cmd or "surah" in low or "soorah" in low or "سورۃ" in low or "سورة" in low:
+        # Match numeric surah: surah 112, soorah 55, etc.
+        m_num = re.search(r"(?:surah|soorah|سورۃ|سورة)\s*(\d+)", low)
+        surah_num = None
+        if m_num:
+            surah_num = int(m_num.group(1))
+        else:
+            # Match named surah: surah ikhlas, surah rahman, etc.
+            for sname, snum in SURAH_NAME_MAP.items():
+                if sname in low:
+                    surah_num = snum
+                    break
+
+        if surah_num and 1 <= surah_num <= 114:
+            # Match ayahs if specified (e.g. 1 se 10 ayahs)
+            m_ayah = re.search(r"(\d+)\s*(?:se|to|-)\s*(\d+)", low)
+            from_a, to_a = 1, 4
+            if m_ayah:
+                from_a = max(1, int(m_ayah.group(1)))
+                to_a = max(from_a, int(m_ayah.group(2)))
+            
+            return {
+                "type": "quran_video",
+                "surah": surah_num,
+                "from_ayah": from_a,
+                "to_ayah": to_a,
+                "video_aspect": "9:16",
+                "reciter_name": "Yasser Al-Dossari"
+            }
+
+    # 2. Check for General Video creation intent
+    if is_video_cmd and not ("surah" in low or "soorah" in low or "سورۃ" in low or "سورة" in low):
+        # Extract clean topic by stripping action phrases
+        clean_topic = re.sub(
+            r"\b(bana\s*do|banao|make\s*a\s*video|create\s*a\s*video|create\s*video|generate|ki\s*video|ki\s*reel|facebook\s*post\s*k\s*liey|facebook\s*post\s*ky\s*liey)\b",
+            "",
+            low,
+            flags=re.I
+        ).strip()
+        clean_topic = re.sub(r"\s+", " ", clean_topic).strip()
+        
+        if len(clean_topic) >= 3:
+            return {
+                "type": "general_video",
+                "topic": clean_topic
+            }
+
+    return None
+
+
+# ── 3. Swarm System Status ──────────────────────────────────────────────────
 
 def get_copilot_system_status() -> Dict[str, Any]:
     """Scans ClipGenesis runtime state, active tasks, and 9Router status."""
@@ -193,13 +262,11 @@ def get_copilot_system_status() -> Dict[str, Any]:
     }
 
 
-# ── 3. Multi-Model Fallback Query Engine ────────────────────────────────────
+# ── 4. Multi-Model Query Engine ─────────────────────────────────────────────
 
 def _try_single_model(model: str, messages: list, headers: dict, timeout: int = 12) -> Optional[str]:
     """
-    Attempts one 9Router chat request.
-    Handles both standard JSON and SSE streaming responses.
-    Returns None on any failure so caller can try next model.
+    Attempts one 9Router chat request. Handles both standard JSON and SSE streaming responses.
     """
     try:
         res = requests.post(
@@ -217,14 +284,12 @@ def _try_single_model(model: str, messages: list, headers: dict, timeout: int = 
         if res.status_code != 200:
             return None
 
-        # Standard JSON parse
         try:
             data = res.json()
             return data["choices"][0]["message"]["content"]
         except Exception:
             pass
 
-        # Fallback: parse SSE streaming format (data: {...}\n lines)
         content_parts = []
         for line in res.text.splitlines():
             line = line.strip()
@@ -250,27 +315,23 @@ def query_copilot_brain(
     current_context: str = ""
 ) -> str:
     """
-    Queries 9Router using a multi-model fallback chain.
-    Tries user-selected model first, then falls through fast model chain.
-    Always returns a useful Urdu/English response.
+    Queries 9Router and checks for autonomous video creation commands.
+    If a video command is parsed, appends an autonomous action marker.
     """
+    intent_action = parse_autonomous_intent(user_prompt)
     sys_status = get_copilot_system_status()
     api_key = _get_ninerouter_api_key()
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
-    # User-selected model first, then fallback chain
     primary_model = MODEL_TEAM_MAP.get(selected_model_key, MODEL_TEAM_MAP["ag_flash_low"])[1]
     model_chain = [primary_model] + [m for m in _FALLBACK_MODEL_CHAIN if m != primary_model]
 
     system_instruction = (
-        "You are ClipGenesis AI Copilot Brain — CEO Agent of a 10-Agent Swarm "
-        "inside ClipGenesis AI Video Studio. Help users with viral scripts, "
-        "9Router image styles (Photorealistic 8K, 3D Pixar, Cyberpunk, Anime), "
-        "AI voice selection, SEO hashtags, and video production.\n\n"
-        f"Live: 9Router {'ONLINE' if sys_status['ninerouter_online'] else 'OFFLINE'} | "
-        f"Tab: {current_context} | "
-        f"Power-Cut Pending: {len(sys_status['unfinished_checkpoints'])}.\n\n"
-        "Respond in Urdu or English based on user's language. Be concise and practical."
+        "You are ClipGenesis AI Copilot Brain — CEO Agent of a 10-Agent Swarm inside ClipGenesis. "
+        "When the user commands you to create a video, acknowledge enthusiastically in Urdu and state that "
+        "the 10-Agent Swarm has started rendering the video.\n\n"
+        f"Live: 9Router {'ONLINE' if sys_status['ninerouter_online'] else 'OFFLINE'} | Tab: {current_context}\n"
+        "Respond in clear Urdu or English."
     )
 
     messages = [
@@ -278,46 +339,25 @@ def query_copilot_brain(
         {"role": "user", "content": user_prompt},
     ]
 
-    # Try each model — first success wins
+    base_reply = None
     for model in model_chain:
         logger.info(f"Copilot: Trying {model}...")
         reply = _try_single_model(model, messages, headers, timeout=12)
         if reply and len(reply.strip()) > 5:
-            logger.info(f"Copilot: Reply from {model}")
-            return reply.strip()
-        logger.warning(f"Copilot: {model} failed, next...")
+            base_reply = reply.strip()
+            break
 
-    # Smart context-aware fallback (Urdu/English) when all models fail
-    logger.warning("Copilot: All models failed — smart fallback")
-    low = user_prompt.lower()
-    if any(w in low for w in ["script", "story", "سکرپٹ", "کہانی"]):
-        return (
-            "💡 **Script Tip:** مضبوط 3 سیکنڈ hook، پھر مرکزی کہانی، "
-            "آخر میں یادگار سبق یا CTA۔ ہر سین 3.5 سیکنڈ رکھیں۔"
-        )
-    elif any(w in low for w in ["hashtag", "seo", "ہیش", "tags"]):
-        return (
-            "🏷️ **Viral Hashtags:**\n"
-            "#Shorts #Reels #Viral #Trending #ClipGenesis "
-            "#AIVideo #IslamicContent #QuranQuotes #ExplorePage #Top10"
-        )
-    elif any(w in low for w in ["style", "image", "تصویر", "سٹائل"]):
-        return (
-            "🎨 **Image Style Guide:**\n"
-            "• **3D Pixar** — animated دینی کہانیاں\n"
-            "• **Photorealistic 8K** — documentaries\n"
-            "• **Cyberpunk Dark** — mystery topics\n"
-            "• **Islamic Calligraphy** — قرآن ویڈیوز"
-        )
-    elif any(w in low for w in ["surah", "quran", "سورة", "قرآن", "ayah", "آیت"]):
-        return (
-            "🕌 **Quran Video Tip:** Golden Royal Thuluth فونٹ، "
-            "Hybrid Background، یاسر الدوسری تلاوت، Photorealistic 8K — "
-            "بہترین نتیجہ ملے گا!"
-        )
-    else:
-        return (
-            "🧠 **ClipGenesis Copilot Active:**\n"
-            "10-Agent Swarm تیار ہے۔ Script، image style، "
-            "voice، SEO، یا video settings کے بارے میں پوچھیں!"
-        )
+    if not base_reply:
+        if intent_action and intent_action["type"] == "quran_video":
+            base_reply = f"🚀 **Surah {intent_action['surah']} کی ویڈیو رینڈرنگ خودکار طور پر شروع کر دی گئی ہے!** 10-Agent Swarm پس منظر میں پروسیسنگ کر رہا ہے..."
+        elif intent_action and intent_action["type"] == "general_video":
+            base_reply = f"🚀 **موضوع '{intent_action['topic']}' کی وائرل ریل جنریشن شروع کر دی گئی ہے!** 10-Agent Swarm رینڈر کر رہا ہے..."
+        else:
+            base_reply = "🧠 **ClipGenesis Copilot Active:** 10-Agent Swarm تیار ہے۔ مجھے ویڈیو بنانے کا آرڈر دیں!"
+
+    # Append autonomous action JSON marker if intent was detected
+    if intent_action:
+        action_json = json.dumps(intent_action, ensure_ascii=False)
+        base_reply += f"\n\n[AUTONOMOUS_ACTION: {action_json}]"
+
+    return base_reply
