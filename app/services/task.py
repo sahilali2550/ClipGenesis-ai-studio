@@ -463,6 +463,12 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     logger.success(
         f"task {task_id} finished, generated {len(final_video_paths)} videos."
     )
+    # 🧹 Auto Junk Purger: Automatically delete temporary stock clips and cache files
+    try:
+        material.purge_task_junk_data(task_id)
+    except Exception as purge_err:
+        logger.warning(f"⚠️ Auto junk cleanup warning: {purge_err}")
+
     import gc
     gc.collect()
 

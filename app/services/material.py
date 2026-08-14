@@ -1,5 +1,7 @@
 import os
+import glob
 import random
+import shutil
 import subprocess
 import threading
 from typing import List
@@ -75,6 +77,36 @@ def clear_video_cache(max_keep: int = 0):
 
     gc.collect()
     logger.info("🧹 Memory & Video cache purged. Ready for fresh video generation.")
+
+
+def purge_task_junk_data(task_id: str):
+    """
+    Auto Junk Purger: Deletes temporary downloaded clips, intermediate concat files, 
+    and cache clips after video rendering completes to keep ClipGenesis storage clean.
+    """
+    try:
+        task_dir = utils.task_dir(task_id)
+        if os.path.exists(task_dir):
+            for filename in ["combined-1.mp4", "concat_list.txt", "temp-clip-1.mp4", "temp-clip-2.mp4"]:
+                fpath = os.path.join(task_dir, filename)
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+            
+            # Remove raw downloaded clips in task folder
+            for f in glob.glob(os.path.join(task_dir, "video_*.mp4")):
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+        
+        # Clear cache videos directory
+        clear_video_cache()
+        logger.info(f"🧹 Auto Junk Cleaner: Purged temp rendering junk for task {task_id}")
+    except Exception as e:
+        logger.warning(f"⚠️ Auto Junk Cleaner warning: {e}")
 
 
 def search_videos_pexels(
