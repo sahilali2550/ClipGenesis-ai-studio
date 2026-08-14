@@ -16,37 +16,63 @@ NINEROUTER_BASE_URL = "http://localhost:20128/v1"
 MEMORY_FILE_PATH = "storage/copilot_brain_state.json"
 CHECKPOINT_FILE_PATH = "storage/task_checkpoints.json"
 
+# Real 9Router model IDs — Verified from /v1/models endpoint
 MODEL_TEAM_MAP = {
-    "gemini_flash": ("✨ Gemini 3.1 / 1.5 Flash (Ultra Fast)", "ag/gemini-3.1-flash-image"),
-    "gpt4o": ("🚀 GPT-4o Omni (Creative Scripting)", "openai/gpt-4o"),
-    "deepseek_r1": ("🧠 DeepSeek R1 / V3 (Deep Logic & Research)", "deepseek/deepseek-reasoner"),
-    "claude_sonnet": ("🎭 Claude 3.5 Sonnet (Refined Polish)", "anthropic/claude-3-5-sonnet"),
-    "qwen_72b": ("⚡ Qwen 2.5 72B (Multilingual Expert)", "qwen/qwen-2.5-72b"),
+    "openai_fast":   ("⚡ OpenAI Fast (Default — Ultra Quick)",  "freellm/openai-fast"),
+    "sahil_combo":   ("🚀 Sahil Combo (Multi-Model Blend)",      "sahil-combo"),
+    "deepseek_v3":   ("🧠 DeepSeek V3 (Deep Logic & Research)",  "if/deepseek-v3"),
+    "qwen3_coder":   ("💻 Qwen3 Coder (Script & Code Expert)",   "if/qwen3-coder-plus"),
+    "claude_sonnet": ("🎭 Claude Sonnet 4.5 (Refined Polish)",   "kr/claude-sonnet-4.5"),
+    "kimi_k2":       ("🌟 Kimi K2 (Creative & Multilingual)",    "if/kimi-k2"),
 }
 
+# Fast fallback chain — tried in order when primary model fails
+_FALLBACK_MODEL_CHAIN = [
+    "freellm/openai-fast",
+    "freellm/gpt-oss-20b",
+    "freellm/llama-3.1-8b-instant",
+    "freellm/groq/compound-mini",
+    "freellm/glm-4.7-flash",
+    "freellm/gemma-3-12b-it",
+]
 
-# ── 1. Power-Cut Checkpoint & Persistent Memory Engine ───────────────────────
+
+def _get_ninerouter_api_key() -> str:
+    """Reads 9Router API key from config.toml (openai_api_key field)."""
+    try:
+        from app.config import config as cfg
+        key = cfg.app.get("openai_api_key", "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return ""
+
+
+# ── 1. Power-Cut Checkpoint & Persistent Memory Engine ──────────────────────
 
 def load_brain_memory() -> Dict[str, Any]:
-    """
-    Loads persistent copilot memory from disk (storage/copilot_brain_state.json).
-    """
+    """Loads persistent copilot memory from disk."""
     if os.path.exists(MEMORY_FILE_PATH):
         try:
             with open(MEMORY_FILE_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            logger.warning(f"⚠️ Brain memory read warning: {e}")
-    
+            logger.warning(f"Brain memory read warning: {e}")
+
     return {
         "chat_history": [
             {
                 "role": "assistant",
-                "content": "👋 سلام! میں ClipGenesis AI Copilot Brain (CEO Agent) ہوں۔ میں 9Router کی تمام AI ماڈلز اور 10 بوٹس کی ٹیم کے ساتھ لائیو متحرک ہوں۔ ویڈیو سکرپٹ، آواز، یا سیٹنگز کے بارے میں کچھ بھی پوچھیں!"
+                "content": (
+                    "👋 سلام! میں ClipGenesis AI Copilot Brain (CEO Agent) ہوں۔ "
+                    "9Router کی 10-Agent ٹیم کے ساتھ حاضر ہوں۔ "
+                    "Script، image style، آواز، یا ویڈیو سیٹنگز کے بارے میں پوچھیں!"
+                )
             }
         ],
         "user_preferences": {
-            "default_model": "gemini_flash",
+            "default_model": "openai_fast",
             "language": "ur"
         },
         "total_tasks_completed": 0
@@ -54,20 +80,18 @@ def load_brain_memory() -> Dict[str, Any]:
 
 
 def save_brain_memory(memory_data: Dict[str, Any]):
-    """
-    Saves copilot memory persistently to disk.
-    """
+    """Saves copilot memory persistently to disk."""
     try:
         os.makedirs("storage", exist_ok=True)
         with open(MEMORY_FILE_PATH, "w", encoding="utf-8") as f:
             json.dump(memory_data, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.warning(f"⚠️ Brain memory save warning: {e}")
+        logger.warning(f"Brain memory save warning: {e}")
 
 
 def save_powercut_checkpoint(task_id: str, stage: str, task_data: Dict[str, Any]):
     """
-    Saves rendering checkpoint to disk so that if PC loses power, ClipGenesis can auto-resume!
+    Saves rendering checkpoint to disk so ClipGenesis can auto-resume after power cut.
     """
     try:
         os.makedirs("storage", exist_ok=True)
@@ -81,7 +105,7 @@ def save_powercut_checkpoint(task_id: str, stage: str, task_data: Dict[str, Any]
 
         checkpoints[task_id] = {
             "task_id": task_id,
-            "stage": stage,  # e.g., 'script_done', 'audio_done', 'images_in_progress'
+            "stage": stage,
             "timestamp": time.time(),
             "readable_time": time.ctime(),
             "data": task_data,
@@ -93,22 +117,19 @@ def save_powercut_checkpoint(task_id: str, stage: str, task_data: Dict[str, Any]
 
         logger.info(f"🛡️ Power-Cut Guard: Saved checkpoint '{stage}' for task {task_id}")
     except Exception as e:
-        logger.warning(f"⚠️ Power-Cut Guard warning: {e}")
+        logger.warning(f"Power-Cut Guard warning: {e}")
 
 
 def get_unfinished_checkpoints() -> List[Dict[str, Any]]:
-    """
-    Scans for unfinished tasks that were interrupted by sudden PC power cut.
-    """
+    """Scans for unfinished tasks interrupted by PC power cut."""
     if os.path.exists(CHECKPOINT_FILE_PATH):
         try:
             with open(CHECKPOINT_FILE_PATH, "r", encoding="utf-8") as f:
                 checkpoints = json.load(f)
-                
+
             unfinished = []
             for t_id, cp in checkpoints.items():
                 if cp.get("resumable", False):
-                    # Check if final video actually exists in storage/general_videos or task dir
                     task_dir = os.path.join("storage", "tasks", t_id)
                     final_path = os.path.join(task_dir, "final-1.mp4")
                     if not os.path.exists(final_path):
@@ -116,14 +137,12 @@ def get_unfinished_checkpoints() -> List[Dict[str, Any]]:
 
             return sorted(unfinished, key=lambda x: x.get("timestamp", 0), reverse=True)
         except Exception as e:
-            logger.warning(f"⚠️ Checkpoint scan warning: {e}")
+            logger.warning(f"Checkpoint scan warning: {e}")
     return []
 
 
 def clear_checkpoint(task_id: str):
-    """
-    Removes checkpoint when task finishes successfully.
-    """
+    """Removes checkpoint when task finishes successfully."""
     if os.path.exists(CHECKPOINT_FILE_PATH):
         try:
             with open(CHECKPOINT_FILE_PATH, "r", encoding="utf-8") as f:
@@ -136,12 +155,10 @@ def clear_checkpoint(task_id: str):
             pass
 
 
-# ── 2. Swarm System Status & 9Router Query Engine ──────────────────────────
+# ── 2. Swarm System Status ──────────────────────────────────────────────────
 
 def get_copilot_system_status() -> Dict[str, Any]:
-    """
-    Scans ClipGenesis runtime state, active tasks, 10-bot swarm, and 9Router status.
-    """
+    """Scans ClipGenesis runtime state, active tasks, and 9Router status."""
     ninerouter_online = False
     try:
         r = requests.get(f"{NINEROUTER_BASE_URL}/models", timeout=2)
@@ -175,58 +192,131 @@ def get_copilot_system_status() -> Dict[str, Any]:
     }
 
 
-def query_copilot_brain(
-    user_prompt: str,
-    selected_model_key: str = "gemini_flash",
-    current_context: str = ""
-) -> str:
+# ── 3. Multi-Model Fallback Query Engine ────────────────────────────────────
+
+def _try_single_model(model: str, messages: list, headers: dict, timeout: int = 12) -> Optional[str]:
     """
-    Queries 9Router multi-model team with ClipGenesis Copilot system prompt and live runtime context.
+    Attempts one 9Router chat request.
+    Handles both standard JSON and SSE streaming responses.
+    Returns None on any failure so caller can try next model.
     """
-    sys_status = get_copilot_system_status()
-    model_name = MODEL_TEAM_MAP.get(selected_model_key, MODEL_TEAM_MAP["gemini_flash"])[1]
-
-    system_instruction = f"""
-You are ClipGenesis AI Copilot Brain — the CEO Agent leading the 10-Agent Swarm inside ClipGenesis AI Video Studio.
-You help video creators write viral scripts, choose 9Router image styles (Photorealistic 8K, 3D Pixar, Cyberpunk), select AI voices, generate SEO hashtags, and auto-resume tasks interrupted by PC power cuts.
-
-Live Studio Context:
-- 9Router Status: {"ONLINE ✅" if sys_status['ninerouter_online'] else "OFFLINE / LOCAL PROXY"}
-- Power-Cut Recovery Tasks: {len(sys_status['unfinished_checkpoints'])} Pending Auto-Resume
-- Current Tab / Page: {current_context}
-
-Be encouraging, professional, concise, and respond in clear, helpful language (supporting Urdu & English).
-"""
-
-    messages = [
-        {"role": "system", "content": system_instruction},
-        {"role": "user", "content": user_prompt}
-    ]
-
     try:
         res = requests.post(
             f"{NINEROUTER_BASE_URL}/chat/completions",
+            headers=headers,
             json={
-                "model": model_name,
+                "model": model,
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 800,
+                "max_tokens": 600,
+                "stream": False,
             },
-            timeout=15
+            timeout=timeout
         )
-        if res.status_code == 200:
+        if res.status_code != 200:
+            return None
+
+        # Standard JSON parse
+        try:
             data = res.json()
             return data["choices"][0]["message"]["content"]
-        else:
-            return f"🤖 Copilot Brain (Active): System status nominal. 9Router status: {res.status_code}. How can I assist you with scriptwriting, 10-bot swarm execution, or video styles?"
-    except Exception as ex:
-        logger.warning(f"Copilot 9Router query warning: {ex}")
-        low = user_prompt.lower()
-        if "script" in low or "story" in low or "سکرپٹ" in low:
-            return "💡 **Copilot Script Tip**: Give a clear protagonist, exciting 3-second hook, and strong moral resolution. Scene duration is locked to 3.5s for maximum viral engagement!"
-        elif "hashtag" in low or "seo" in low or "ہیش" in low:
-            return "🏷️ **Copilot SEO Package**:\n#Shorts #Reels #Viral #Trending #ClipGenesis #AIContent #Top10 #ExplorePage"
-        elif "style" in low or "image" in low or "تصویر" in low:
-            return "🎨 **Copilot Style Guide**: Use `3D Pixar / Disney` for animated stories and `Photorealistic 8K` or `Cyberpunk Dark` for mystery documentaries!"
-        else:
-            return f"🧠 **ClipGenesis CEO Brain Active**: 10-Agent Swarm is online & monitoring. Power-Cut recovery protection is active. How can I help you create viral reels today?"
+        except Exception:
+            pass
+
+        # Fallback: parse SSE streaming format (data: {...}\n lines)
+        content_parts = []
+        for line in res.text.splitlines():
+            line = line.strip()
+            if line.startswith("data:") and "[DONE]" not in line:
+                try:
+                    chunk = json.loads(line[5:].strip())
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    if delta.get("content"):
+                        content_parts.append(delta["content"])
+                except Exception:
+                    pass
+        if content_parts:
+            return "".join(content_parts)
+
+    except Exception:
+        pass
+    return None
+
+
+def query_copilot_brain(
+    user_prompt: str,
+    selected_model_key: str = "openai_fast",
+    current_context: str = ""
+) -> str:
+    """
+    Queries 9Router using a multi-model fallback chain.
+    Tries user-selected model first, then falls through fast model chain.
+    Always returns a useful Urdu/English response.
+    """
+    sys_status = get_copilot_system_status()
+    api_key = _get_ninerouter_api_key()
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+    # User-selected model first, then fallback chain
+    primary_model = MODEL_TEAM_MAP.get(selected_model_key, MODEL_TEAM_MAP["openai_fast"])[1]
+    model_chain = [primary_model] + [m for m in _FALLBACK_MODEL_CHAIN if m != primary_model]
+
+    system_instruction = (
+        "You are ClipGenesis AI Copilot Brain — CEO Agent of a 10-Agent Swarm "
+        "inside ClipGenesis AI Video Studio. Help users with viral scripts, "
+        "9Router image styles (Photorealistic 8K, 3D Pixar, Cyberpunk, Anime), "
+        "AI voice selection, SEO hashtags, and video production.\n\n"
+        f"Live: 9Router {'ONLINE' if sys_status['ninerouter_online'] else 'OFFLINE'} | "
+        f"Tab: {current_context} | "
+        f"Power-Cut Pending: {len(sys_status['unfinished_checkpoints'])}.\n\n"
+        "Respond in Urdu or English based on user's language. Be concise and practical."
+    )
+
+    messages = [
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    # Try each model — first success wins
+    for model in model_chain:
+        logger.info(f"Copilot: Trying {model}...")
+        reply = _try_single_model(model, messages, headers, timeout=12)
+        if reply and len(reply.strip()) > 5:
+            logger.info(f"Copilot: Reply from {model}")
+            return reply.strip()
+        logger.warning(f"Copilot: {model} failed, next...")
+
+    # Smart context-aware fallback (Urdu/English) when all models fail
+    logger.warning("Copilot: All models failed — smart fallback")
+    low = user_prompt.lower()
+    if any(w in low for w in ["script", "story", "سکرپٹ", "کہانی"]):
+        return (
+            "💡 **Script Tip:** مضبوط 3 سیکنڈ hook، پھر مرکزی کہانی، "
+            "آخر میں یادگار سبق یا CTA۔ ہر سین 3.5 سیکنڈ رکھیں۔"
+        )
+    elif any(w in low for w in ["hashtag", "seo", "ہیش", "tags"]):
+        return (
+            "🏷️ **Viral Hashtags:**\n"
+            "#Shorts #Reels #Viral #Trending #ClipGenesis "
+            "#AIVideo #IslamicContent #QuranQuotes #ExplorePage #Top10"
+        )
+    elif any(w in low for w in ["style", "image", "تصویر", "سٹائل"]):
+        return (
+            "🎨 **Image Style Guide:**\n"
+            "• **3D Pixar** — animated دینی کہانیاں\n"
+            "• **Photorealistic 8K** — documentaries\n"
+            "• **Cyberpunk Dark** — mystery topics\n"
+            "• **Islamic Calligraphy** — قرآن ویڈیوز"
+        )
+    elif any(w in low for w in ["surah", "quran", "سورة", "قرآن", "ayah", "آیت"]):
+        return (
+            "🕌 **Quran Video Tip:** Golden Royal Thuluth فونٹ، "
+            "Hybrid Background، یاسر الدوسری تلاوت، Photorealistic 8K — "
+            "بہترین نتیجہ ملے گا!"
+        )
+    else:
+        return (
+            "🧠 **ClipGenesis Copilot Active:**\n"
+            "10-Agent Swarm تیار ہے۔ Script، image style، "
+            "voice، SEO، یا video settings کے بارے میں پوچھیں!"
+        )
