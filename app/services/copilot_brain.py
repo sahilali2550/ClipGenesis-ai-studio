@@ -16,24 +16,25 @@ NINEROUTER_BASE_URL = "http://localhost:20128/v1"
 MEMORY_FILE_PATH = "storage/copilot_brain_state.json"
 CHECKPOINT_FILE_PATH = "storage/task_checkpoints.json"
 
-# Real 9Router model IDs — Verified from /v1/models endpoint
+# Real 9Router model IDs — ag/ models VERIFIED working (HTTP 200 confirmed)
 MODEL_TEAM_MAP = {
-    "openai_fast":   ("⚡ OpenAI Fast (Default — Ultra Quick)",  "freellm/openai-fast"),
-    "sahil_combo":   ("🚀 Sahil Combo (Multi-Model Blend)",      "sahil-combo"),
-    "deepseek_v3":   ("🧠 DeepSeek V3 (Deep Logic & Research)",  "if/deepseek-v3"),
-    "qwen3_coder":   ("💻 Qwen3 Coder (Script & Code Expert)",   "if/qwen3-coder-plus"),
-    "claude_sonnet": ("🎭 Claude Sonnet 4.5 (Refined Polish)",   "kr/claude-sonnet-4.5"),
-    "kimi_k2":       ("🌟 Kimi K2 (Creative & Multilingual)",    "if/kimi-k2"),
+    "ag_flash_low":  ("✨ Gemini 3.5 Flash Low (Default — Fastest)", "ag/gemini-3.5-flash-low"),
+    "ag_flash_mid":  ("🚀 Gemini 3.5 Flash Medium (Balanced)",       "ag/gemini-3.5-flash-medium"),
+    "ag_flash_high": ("🔥 Gemini 3.7 Flash High (Most Capable)",     "ag/gemini-3.7-flash-high"),
+    "deepseek_v3":   ("🧠 DeepSeek V3 (Deep Logic & Research)",       "if/deepseek-v3"),
+    "qwen3_coder":   ("💻 Qwen3 Coder (Script & Code Expert)",        "if/qwen3-coder-plus"),
+    "claude_sonnet": ("🎭 Claude Sonnet 4.5 (Refined Polish)",        "kr/claude-sonnet-4.5"),
 }
 
-# Fast fallback chain — tried in order when primary model fails
+# Fast fallback chain — ag/ models first (verified working), then others
 _FALLBACK_MODEL_CHAIN = [
+    "ag/gemini-3.5-flash-low",
+    "ag/gemini-3.5-flash-extra-low",
+    "ag/gemini-3-flash",
+    "ag/gemini-3.5-flash-medium",
+    "ag/gemini-3.7-flash-low",
     "freellm/openai-fast",
     "freellm/gpt-oss-20b",
-    "freellm/llama-3.1-8b-instant",
-    "freellm/groq/compound-mini",
-    "freellm/glm-4.7-flash",
-    "freellm/gemma-3-12b-it",
 ]
 
 
@@ -245,7 +246,7 @@ def _try_single_model(model: str, messages: list, headers: dict, timeout: int = 
 
 def query_copilot_brain(
     user_prompt: str,
-    selected_model_key: str = "openai_fast",
+    selected_model_key: str = "ag_flash_low",
     current_context: str = ""
 ) -> str:
     """
@@ -258,7 +259,7 @@ def query_copilot_brain(
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     # User-selected model first, then fallback chain
-    primary_model = MODEL_TEAM_MAP.get(selected_model_key, MODEL_TEAM_MAP["openai_fast"])[1]
+    primary_model = MODEL_TEAM_MAP.get(selected_model_key, MODEL_TEAM_MAP["ag_flash_low"])[1]
     model_chain = [primary_model] + [m for m in _FALLBACK_MODEL_CHAIN if m != primary_model]
 
     system_instruction = (
