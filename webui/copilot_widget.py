@@ -1,31 +1,59 @@
 """
-webui/copilot_widget.py — ClipGenesis AI Copilot Brain UI Popover & Drawer
-Renders 9Router Multi-Model Switcher, Real-Time Task Monitor & Interactive AI Chat directly on top of the main screen & sidebar across all 13 Studio Tabs.
+webui/copilot_widget.py — ClipGenesis Master Copilot Brain & 10-Agent Swarm UI Drawer
+Renders Power-Cut Checkpoint Auto-Resume Banner, 10-Bot Team Live Progress, 9Router Multi-Model Switcher, and Interactive Chat.
 """
 
 import os
 import streamlit as st
-from app.services import copilot_brain
+from app.services import copilot_brain, agent_swarm, task as tm
 
 
 def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
     """
-    Renders inner content of Copilot Brain (Model Switcher, Monitor, Chat, Action Chips).
+    Renders inner content of Copilot Brain (Model Switcher, 10-Bot Swarm Monitor, Chat, Action Chips).
     """
     st.markdown(
         """
         <div style="background:linear-gradient(135deg, rgba(0,229,160,0.15) 0%, rgba(0,128,255,0.15) 100%);
                     border:1px solid rgba(0,229,160,0.4);border-radius:12px;padding:12px;margin-bottom:14px;">
-            <b style="color:#00E5A0;font-size:1.05rem;">🧠 ClipGenesis AI Copilot Brain</b>
+            <b style="color:#00E5A0;font-size:1.08rem;">🧠 ClipGenesis AI Copilot Brain (CEO Agent)</b>
             <p style="margin:4px 0 0 0;font-size:0.83rem;color:#C8C0BA;">
-                9Router AI Model Team • Real-Time Task Monitor • Auto-Healer & Script Genius
+                10-Agent Swarm • Power-Cut Checkpoint Protection • 9Router Multi-Model Team
             </p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # ── 1. 9Router Multi-Model Team Switcher ────────────────────────────
+    # ── 1. Power-Cut Recovery Checkpoint Detection ──────────────────────
+    sys_status = copilot_brain.get_copilot_system_status()
+    unfinished = sys_status.get("unfinished_checkpoints", [])
+    
+    if unfinished:
+        top_cp = unfinished[0]
+        st.markdown(
+            f"""
+            <div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);
+                        border-radius:10px;padding:12px;margin-bottom:12px;">
+                <b style="color:#EF4444;">🛡️ Power-Cut Recovery: Unfinished Task Detected!</b><br/>
+                <span style="font-size:0.82rem;color:#E2E8F0;">
+                    Task <code>{top_cp['task_id'][:8]}</code> was interrupted during <b>{top_cp['stage']}</b> at {top_cp.get('readable_time', '')}.
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        if st.button(f"⚡ 1-Click Resume Task ({top_cp['task_id'][:8]})", type="primary", use_container_width=True, key=f"res_cp_{key_suffix}"):
+            with st.spinner("⏳ Resuming rendering from saved checkpoint…"):
+                try:
+                    res_path = tm.resume_task(top_cp['task_id'])
+                    st.success(f"🎉 Task auto-resumed successfully: {res_path}")
+                    copilot_brain.clear_checkpoint(top_cp['task_id'])
+                    st.rerun()
+                except Exception as ex:
+                    st.error(f"❌ Auto-resume error: {ex}")
+
+    # ── 2. 9Router Multi-Model Team Switcher ────────────────────────────
     models_map = copilot_brain.MODEL_TEAM_MAP
     model_keys = list(models_map.keys())
     
@@ -38,24 +66,15 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
     )
     selected_model_key = model_keys[selected_model_idx]
 
-    # ── 2. Real-Time Task Monitor & Health Status ───────────────────────
-    status = copilot_brain.get_copilot_system_status()
-    ninerouter_badge = "🟢 ONLINE (20128)" if status["ninerouter_online"] else "🟡 LOCAL PROXY"
-    
-    st.markdown(
-        f"""
-        <div style="background:rgba(14,17,23,0.85);border:1px solid rgba(0,229,160,0.25);
-                    border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.83rem;color:#E2E8F0;">
-            <b>👁️ Real-Time System & Task Monitor:</b><br/>
-            • 9Router Proxy: <span style="color:#00E5A0;font-weight:bold;">{ninerouter_badge}</span><br/>
-            • Active Tasks: <span style="color:#38BDF8;font-weight:bold;">{status['active_tasks_count']} Active Render Jobs</span><br/>
-            • Active Studio Tab: <span style="color:#F59E0B;font-weight:bold;">{current_page_name}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ── 3. 10-Agent Swarm Live Status Dashboard ─────────────────────────
+    with st.expander("🤖 10-Agent Swarm Team Status (Live)", expanded=False):
+        bots = sys_status.get("swarm_bots", [])
+        b_cols = st.columns(2)
+        for idx, bot in enumerate(bots):
+            with b_cols[idx % 2]:
+                st.markdown(f"<span style='font-size:0.8rem;color:#C8C0BA;'>• {bot['name']}: <b style='color:#00E5A0;'>{bot['status']}</b></span>", unsafe_allow_html=True)
 
-    # ── 3. Quick Action Chips ───────────────────────────────────────────
+    # ── 4. Quick Action Chips ───────────────────────────────────────────
     st.markdown("<b>🪄 Quick AI Assistant Actions:</b>", unsafe_allow_html=True)
     col_c1, col_c2, col_c3 = st.columns(3)
     
@@ -70,11 +89,10 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
         if st.button("🎨 Image Style", use_container_width=True, key=f"cp_act_style_{key_suffix}"):
             prompt_to_send = "Recommend the best 9Router image style (3D Pixar, Photorealistic 8K, Cyberpunk) for my topic."
 
-    # ── 4. Chat History & Interactive Input ─────────────────────────────
+    # ── 5. Chat History & Interactive Input ─────────────────────────────
     if "copilot_chat_history" not in st.session_state:
-        st.session_state["copilot_chat_history"] = [
-            {"role": "assistant", "content": "👋 سلام! میں ClipGenesis AI Copilot Brain ہوں۔ میں 9Router کے تمام AI ماڈلز کے ساتھ لائیو منسلک ہوں۔ سکرپٹ، آواز، یا ویژول سیٹنگز کے بارے میں کچھ بھی پوچھیں!"}
-        ]
+        saved_mem = copilot_brain.load_brain_memory()
+        st.session_state["copilot_chat_history"] = saved_mem.get("chat_history", [])
 
     # Display history
     chat_container = st.container(height=240)
@@ -87,7 +105,6 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
 
     # Chat Input
     user_input = st.chat_input("Ask AI Copilot anything…", key=f"copilot_chat_input_{key_suffix}")
-    
     final_prompt = user_input or prompt_to_send
 
     if final_prompt:
@@ -100,6 +117,11 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
                 current_context=current_page_name
             )
             st.session_state["copilot_chat_history"].append({"role": "assistant", "content": ans})
+            
+            # Persist to disk memory
+            mem = copilot_brain.load_brain_memory()
+            mem["chat_history"] = st.session_state["copilot_chat_history"]
+            copilot_brain.save_brain_memory(mem)
             st.rerun()
 
 
@@ -110,13 +132,15 @@ def render_copilot_widget(current_page_name: str = "Dashboard"):
     # ── Main Canvas Top Banner & Popover (100% Prominent on Screen) ─────────
     col_left, col_right = st.columns([3, 1])
     with col_left:
+        sys_status = copilot_brain.get_copilot_system_status()
+        badge_text = "🛡️ Power-Cut Recovery Active" if sys_status.get("powercut_recovery_available") else "🟢 10-Agent Swarm Ready"
         st.markdown(
             f"""
             <div style="background:linear-gradient(90deg, rgba(0,229,160,0.12) 0%, rgba(0,128,255,0.12) 100%);
-                        border:1px solid rgba(0,229,160,0.35);border-radius:10px;padding:8px 16px;margin:8px 0 16px 0;
+                        border:1px solid rgba(0,229,160,0.35);border-radius:10px;padding:8px 16px;margin:4px 0 14px 0;
                         display:flex;align-items:center;justify-between:space-between;">
                 <span style="color:#00E5A0;font-weight:700;font-size:0.95rem;">
-                    🧠 ClipGenesis AI Copilot Brain Active • 9Router Team Connected • Monitoring Tasks
+                    🧠 ClipGenesis AI Copilot Brain (CEO Agent) • {badge_text} • 9Router Team Connected
                 </span>
             </div>
             """,
@@ -128,5 +152,5 @@ def render_copilot_widget(current_page_name: str = "Dashboard"):
             _render_copilot_content(current_page_name, key_suffix="main_popover")
 
     # Also render inside sidebar for backup
-    with st.sidebar.expander("💬 ClipGenesis AI Copilot Brain", expanded=True):
+    with st.sidebar.expander("💬 ClipGenesis AI Copilot Brain", expanded=False):
         _render_copilot_content(current_page_name, key_suffix="sidebar")

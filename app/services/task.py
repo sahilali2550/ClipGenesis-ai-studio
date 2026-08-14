@@ -72,6 +72,16 @@ def save_script_data(task_id, video_script, video_terms, params):
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(utils.to_json(script_data))
 
+    try:
+        from app.services import copilot_brain
+        copilot_brain.save_powercut_checkpoint(
+            task_id=task_id,
+            stage="script_done",
+            task_data={"subject": getattr(params, "video_subject", ""), "script": video_script}
+        )
+    except Exception:
+        pass
+
 
 def generate_audio(task_id, params, video_script):
     logger.info("\n\n## generating audio")
