@@ -199,9 +199,14 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
         return [material_info.url for material_info in materials]
     else:
         logger.info(f"\n\n## downloading videos from {params.video_source}")
+        if isinstance(video_terms, str):
+            clean_terms = [t.strip() for t in video_terms.split(",") if t.strip()]
+        else:
+            clean_terms = video_terms
+
         downloaded_videos = material.download_videos(
             task_id=task_id,
-            search_terms=video_terms,
+            search_terms=clean_terms,
             source=params.video_source,
             video_aspect=params.video_aspect,
             video_contact_mode=params.video_concat_mode,
