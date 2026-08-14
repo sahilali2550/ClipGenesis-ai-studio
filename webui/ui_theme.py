@@ -624,37 +624,93 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
   padding: 0 !important;
 }
 
-/* 1. Dashboard Overview - Vivid Emerald Green */
+/* 1. Dashboard - Emerald Green */
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(1),
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(1) {
   background: linear-gradient(180deg, #10B981 0%, #059669 100%) !important;
   box-shadow: 0 5px 0 #046C4E, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 2. Create Video - Flame Orange */
+/* 2. Quran Video - Neon Green */
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(2),
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(2) {
-  background: linear-gradient(180deg, #FF6B35 0%, #FF4500 100%) !important;
-  box-shadow: 0 5px 0 #B33000, 0 6px 12px rgba(0,0,0,0.5) !important;
+  background: linear-gradient(180deg, #00E5A0 0%, #059669 100%) !important;
+  box-shadow: 0 5px 0 #00A370, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 3. Assets - Islamic Teal Emerald */
+/* 3. Darood Shareef - Islamic Cyan Teal */
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(3),
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(3) {
   background: linear-gradient(180deg, #14B8A6 0%, #0D9488 100%) !important;
   box-shadow: 0 5px 0 #115E59, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 4. Projects - Cyber Sapphire Blue */
+/* 4. PK Urdu Video - Crimson Rose */
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(4),
 div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(4) {
-  background: linear-gradient(180deg, #3B82F6 0%, #2563EB 100%) !important;
+  background: linear-gradient(180deg, #E11D48 0%, #BE123C 100%) !important;
+  box-shadow: 0 5px 0 #881337, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 5. Link Re-Creator - Sapphire Royal Blue */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(5),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(5) {
+  background: linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%) !important;
   box-shadow: 0 5px 0 #1E40AF, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* 5. Settings - Slate Titanium */
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(5),
-div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(5) {
+/* 6. Batch Gen - Electric Purple */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(6),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(6) {
+  background: linear-gradient(180deg, #8B5CF6 0%, #7C3AED 100%) !important;
+  box-shadow: 0 5px 0 #5B21B6, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 7. Video Wizard - Flame Orange */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(7),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(7) {
+  background: linear-gradient(180deg, #FF6B35 0%, #FF4500 100%) !important;
+  box-shadow: 0 5px 0 #B33000, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 8. Voice Studio - Magenta Pink */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(8),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(8) {
+  background: linear-gradient(180deg, #EC4899 0%, #DB2777 100%) !important;
+  box-shadow: 0 5px 0 #9D174D, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 9. Voice & Trends - Amber Gold */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(9),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(9) {
+  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%) !important;
+  box-shadow: 0 5px 0 #B45309, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 10. Templates - Indigo Blue */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(10),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(10) {
+  background: linear-gradient(180deg, #6366F1 0%, #4F46E5 100%) !important;
+  box-shadow: 0 5px 0 #3730A3, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 11. Smart Script - Sky Cyan */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(11),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(11) {
+  background: linear-gradient(180deg, #0EA5E9 0%, #0284C7 100%) !important;
+  box-shadow: 0 5px 0 #0369A1, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 12. A/B Testing - Coral Red */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(12),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(12) {
+  background: linear-gradient(180deg, #EF4444 0%, #DC2626 100%) !important;
+  box-shadow: 0 5px 0 #991B1B, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* 13. Settings - Slate Titanium */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(13),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(13) {
   background: linear-gradient(180deg, #64748B 0%, #475569 100%) !important;
   box-shadow: 0 5px 0 #1E293B, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
@@ -707,11 +763,19 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) label
 """
 
 PAGES = [
-    {"icon": "🏠", "label": "Dashboard Overview", "key": "dashboard"},
-    {"icon": "🎬", "label": "Create Video",        "key": "create_video"},
-    {"icon": "📁", "label": "Assets",              "key": "assets"},
-    {"icon": "📦", "label": "Projects",            "key": "projects"},
-    {"icon": "⚙️", "label": "Settings",            "key": "settings"},
+    {"icon": "🏠", "label": "Dashboard",       "key": "dashboard"},
+    {"icon": "📖", "label": "Quran Video",     "key": "quran_video"},
+    {"icon": "🕌", "label": "Darood Shareef",  "key": "darood_video"},
+    {"icon": "🇵🇰", "label": "PK Urdu Video",   "key": "pk_urdu_video"},
+    {"icon": "🔗", "label": "Link Re-Creator", "key": "link_recreator"},
+    {"icon": "📦", "label": "Batch Gen",       "key": "batch_gen"},
+    {"icon": "⚡", "label": "Video Wizard",    "key": "video_wizard"},
+    {"icon": "🎙️", "label": "Voice Studio",    "key": "voice_studio"},
+    {"icon": "🎙️", "label": "Voice & Trends",  "key": "voice_trends"},
+    {"icon": "🎨", "label": "Templates",       "key": "templates"},
+    {"icon": "✍️", "label": "Smart Script",     "key": "smart_script"},
+    {"icon": "🎯", "label": "A/B Testing",     "key": "ab_testing"},
+    {"icon": "⚙️", "label": "Settings",       "key": "settings"},
 ]
 
 

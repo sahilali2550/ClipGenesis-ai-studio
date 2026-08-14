@@ -1942,15 +1942,43 @@ def render_projects_page():
                 st.image(t_path, caption="Primary Project Thumbnail", width=400)
 
 
+def render_voice_studio_wrapper():
+    import importlib
+    from webui import voice_studio_page
+    importlib.reload(voice_studio_page)
+    voice_studio_page.render_voice_studio_page()
+
+def render_quran_wrapper():
+    from webui import quran_video_page
+    quran_video_page.render_quran_video()
+
+def render_darood_wrapper():
+    from webui import darood_video_page
+    darood_video_page.render_darood_video_page()
+
+def render_link_recreator_wrapper():
+    from webui import link_recreator_page
+    link_recreator_page.render_link_recreator_page()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE ROUTER  (must be after all render_* functions are defined)
 # ═══════════════════════════════════════════════════════════════════════════════
 PAGE_MAP = {
-    "dashboard": render_dashboard,
-    "create_video": render_create_video_page,
-    "assets": render_assets_page,
-    "projects": render_projects_page,
-    "settings": render_settings,
+    "dashboard":     render_dashboard,
+    "quran_video":   render_quran_wrapper,
+    "darood_video":  render_darood_wrapper,
+    "pk_urdu_video": render_urdu_video,
+    "link_recreator":render_link_recreator_wrapper,
+    "batch_gen":     render_batch_generation,
+    "video_wizard":  render_video_wizard,
+    "voice_studio":  render_voice_studio_wrapper,
+    "voice_trends":  render_voice_trends,
+    "templates":     render_templates,
+    "smart_script":  render_smart_script,
+    "ab_testing":    render_ab_testing,
+    "assets":        render_assets_page,
+    "projects":      render_projects_page,
+    "settings":      render_settings,
 }
 
 # Render Global Unfinished Task Banner at the very top of the app
