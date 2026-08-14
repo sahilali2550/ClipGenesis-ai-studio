@@ -128,12 +128,28 @@ def render_link_recreator_page():
                 key="url_video_source",
             )
             video_source = _src_options[_src_sel][1]
+            image_style = "photorealistic"
 
             if video_source == "9router":
                 st.info(
                     "🤖 **9Router AI Images + Motion**: Video URL کے title/topic کے "
                     "مطابق AI تصویر بنائی جائے گی۔"
                 )
+                style_opts = [
+                    ("📸 Photorealistic 8K (سینماٹک رئیلزم)", "photorealistic"),
+                    ("🎨 3D Pixar / Disney (3D کارٹون سٹائل)", "3d_pixar"),
+                    ("🖌️ Anime / Manga (جاپانی اینیمے آرٹ)", "anime"),
+                    ("🌌 Cyberpunk Dark (نیون فیوچرسٹک ڈارک)", "cyberpunk"),
+                    ("🖼️ Vintage Oil Painting (کلاسک ائل پینٹنگ)", "oil_painting"),
+                ]
+                sel_st_idx = st.selectbox(
+                    "🎭 AI Image Art Style",
+                    options=range(len(style_opts)),
+                    format_func=lambda x: style_opts[x][0],
+                    index=0,
+                    key="url_image_style"
+                )
+                image_style = style_opts[sel_st_idx][1]
 
             bg_theme = st.selectbox(
                 "Background Video Theme",
@@ -198,7 +214,7 @@ def render_link_recreator_page():
             else:
                 with st.spinner("⏳ Downloading audio & compositing background video…"):
                     try:
-                        out_path = link_recreator.recreate_video_from_url(
+                        res_data = link_recreator.recreate_video_from_url(
                             url=video_url.strip(),
                             background_theme=bg_theme,
                             aspect_ratio=aspect,
@@ -207,9 +223,11 @@ def render_link_recreator_page():
                             enable_subtitles=enable_subtitles,
                             subtitle_style=subtitle_style,
                             selected_voice=selected_voice,
+                            image_style=image_style,
                             logo_path=logo_path,
                         )
-                        st.session_state["last_recreated_video"] = out_path
+                        st.session_state["last_recreated_res"] = res_data
+                        st.session_state["last_recreated_video"] = res_data["video_path"]
                         st.success("🎉 Reel re-created successfully!")
                     except Exception as ex:
                         logger.error(f"Link Re-Creator error: {ex}")
@@ -235,16 +253,43 @@ def render_link_recreator_page():
                     use_container_width=True,
                 )
 
+            res_data = st.session_state.get("last_recreated_res", {})
+            
+            # ── Render AI Auto-Thumbnails ──────────────────────────────────────
+            thumbs = res_data.get("thumbnails", [])
+            if thumbs:
+                st.markdown("#### 🖼️ AI Auto-Thumbnails (High CTR)")
+                t_cols = st.columns(len(thumbs))
+                for idx, t_path in enumerate(thumbs):
+                    if os.path.exists(t_path):
+                        with t_cols[idx]:
+                            st.image(t_path, caption=f"Thumbnail #{idx+1}")
+                            with open(t_path, "rb") as tf:
+                                st.download_button(
+                                    f"⬇️ Thumb #{idx+1}",
+                                    data=tf.read(),
+                                    file_name=os.path.basename(t_path),
+                                    mime="image/jpeg",
+                                    key=f"dl_thumb_{idx}"
+                                )
+
+            # ── Render Viral SEO Hashtags & Description ─────────────────────────
+            seo_desc = res_data.get("seo_description", "")
+            hashtags = res_data.get("hashtags", "")
+            if seo_desc or hashtags:
+                with st.expander("🏷️ Viral Hashtags & SEO Description (Copy-Paste)", expanded=True):
+                    st.text_area("Hashtags & Description", value=seo_desc, height=140)
+
             st.markdown(
                 """
                 <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);
                             border-radius:10px;padding:14px;margin-top:12px;">
                     <b style="color:#00E5A0;">✅ What was done:</b>
                     <ul style="margin:6px 0 0 0;font-size:0.87rem;color:#C8C0BA;">
-                        <li>Original audio downloaded completely</li>
-                        <li>Fresh 4K background composited (Islamic-safe — architecture only)</li>
-                        <li>No text, no subtitles, no watermark</li>
-                        <li>Ready for Facebook / YouTube / TikTok upload</li>
+                        <li>Original audio processed & anti-copyright protected</li>
+                        <li>4K AI background composited with Ken Burns motion</li>
+                        <li>3 High-CTR Thumbnails generated automatically</li>
+                        <li>Viral SEO Hashtags generated for instant posting</li>
                     </ul>
                 </div>
                 """,

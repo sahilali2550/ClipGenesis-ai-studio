@@ -343,11 +343,6 @@ def image_to_kenburns_clip(
                 top = center_y - (current_crop_h / 2.0)
                 right = center_x + (current_crop_w / 2.0)
                 bottom = center_y + (current_crop_h / 2.0)
-
-                frame_img = img.crop((left, top, right, bottom)).resize((target_w, target_h), Image.Resampling.BILINEAR)
-                proc.stdin.write(frame_img.tobytes())
-
-            proc.stdin.close()
         except Exception as write_err:
             logger.warning(f"🎬 FFmpeg stdin write error: {write_err}")
             try:
@@ -375,41 +370,37 @@ def generate_9router_videos(
     task_id: str,
     search_terms: List[str],
     video_aspect: VideoAspect = VideoAspect.portrait,
-    audio_duration: float = 0.0,
-    max_clip_duration: int = 5,
+    audio_duration: float = 30.0,
+    max_clip_duration: float = 3.5,
+    task_dir: str = "",
     fallback_source: str = "pexels",
+    image_style: str = "photorealistic",
 ) -> List[str]:
     """
     Full pipeline orchestrator for 9Router video generation.
-
-    For each search term, generates one AI image via 9Router and converts it
-    to a Ken Burns animated MP4 clip.  If 9Router is unavailable or all image
-    generation attempts fail, gracefully falls back to the specified stock
-    footage source (default: "pexels").
-
-    Parameters
-    ----------
-    task_id          : Task identifier (used for task-specific output directory).
-    search_terms     : List of text prompts / video keywords.
-    video_aspect     : Target VideoAspect enum.
-    audio_duration   : Required total video duration in seconds.
-    max_clip_duration: Duration per clip in seconds (default 5).
-    fallback_source  : Video source to use on failure ("pexels" or "pixabay").
-
-    Returns
-    -------
-    List[str] : List of absolute MP4 file paths, or [] if everything failed.
+    Supports 5 AI Image Styles: photorealistic, 3d_pixar, anime, cyberpunk, oil_painting.
     """
     video_paths: List[str] = []
     total_duration = 0.0
 
-    task_dir = utils.task_dir(task_id)
+    if not task_dir:
+        task_dir = utils.task_dir(task_id)
     os.makedirs(task_dir, exist_ok=True)
+
+    # Style modifier mapping
+    style_modifiers = {
+        "photorealistic": "photorealistic 8K, ultra detailed, cinematic lighting, dramatic depth of field",
+        "3d_pixar":       "3D Pixar animation style, Disney render, vibrant colors, cute smooth 3d model, octane render",
+        "anime":          "Japanese anime style, Studio Ghibli, high detail digital art, vibrant manga aesthetic",
+        "cyberpunk":      "Cyberpunk aesthetic, glowing neon lights, dark moody atmosphere, futuristic 4K",
+        "oil_painting":   "Vintage classical oil painting masterpiece, rich brush strokes, museum quality art",
+    }
+    style_suffix = style_modifiers.get(image_style, style_modifiers["photorealistic"])
 
     # How many clips do we need to cover the audio?
     needed_clips = max(1, math.ceil(audio_duration / max_clip_duration))
     logger.info(
-        f"🤖 9Router pipeline | {needed_clips} clips needed "
+        f"🤖 9Router pipeline | {needed_clips} clips needed | style={image_style} "
         f"({audio_duration:.1f}s audio @ {max_clip_duration}s/clip)"
     )
 

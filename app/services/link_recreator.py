@@ -9,6 +9,7 @@ import re
 import time
 import shutil
 import subprocess
+from typing import Dict, Any, List
 import numpy as np
 import yt_dlp
 from loguru import logger
@@ -452,14 +453,17 @@ def recreate_video_from_url(
     enable_subtitles: bool = False,
     subtitle_style: str = "gold",
     selected_voice: str = "",
+    image_style: str = "photorealistic",
+    bgm_mood: str = "none",
     logo_path: str = "",
     logo_position: str = "top_right",
     logo_size: int = 130,
     logo_opacity: float = 0.9,
     output_filename: str = "",
-) -> str:
+) -> Dict[str, Any]:
     """
     Full workflow: download complete audio → Anti-Copyright Shield → background (Pexels/Pixabay/9Router AI) → merge.
+    Returns dictionary with final_output video path, thumbnails, and viral SEO hashtags!
     """
     logger.info(f"🚀 Re-creating Reel from URL: {url}  |  source={video_source}")
 
@@ -541,6 +545,7 @@ def recreate_video_from_url(
                 audio_duration=duration,
                 max_clip_duration=3.5,
                 task_dir=output_dir_9r,
+                image_style=image_style,
             )
             bg_paths = [p for p in nine_paths if p and os.path.exists(p)]
             if bg_paths:
@@ -656,7 +661,11 @@ def recreate_video_from_url(
     else:
         shutil.copy2(no_sub, final_output)
 
-    # 8. Cleanup temp files
+    # 8. Auto-Generate 3 High-CTR Thumbnails & Viral SEO Hashtags
+    thumbnails = generate_auto_thumbnails(video_path=final_output, title=clean_title, output_dir=output_dir)
+    seo_data = generate_viral_seo_hashtags(title=clean_title)
+
+    # 9. Cleanup temp files
     for tmp in [list_txt, raw_bg, no_sub]:
         try:
             if tmp and os.path.exists(tmp):
@@ -665,4 +674,57 @@ def recreate_video_from_url(
             pass
 
     logger.success(f"🎉 Re-created Reel → {final_output}  ({duration:.1f}s)")
-    return final_output
+    return {
+        "video_path": final_output,
+        "thumbnails": thumbnails,
+        "hashtags": seo_data["hashtags"],
+        "seo_description": seo_data["seo_description"],
+        "title": clean_title,
+    }
+
+
+def generate_viral_seo_hashtags(title: str) -> dict:
+    cleaned = re.sub(r'[^\w\s]', '', title).strip()
+    words = [w for w in cleaned.split() if len(w) > 2]
+    base_tags = ["#Shorts", "#Reels", "#Viral", "#Trending", "#FYP", "#AIContent"]
+    topic_tags = [f"#{w.capitalize()}" for w in words[:5]]
+    all_tags = list(dict.fromkeys(base_tags + topic_tags))
+    seo_desc = (
+        f"🔥 {title}\n\n"
+        f"Watch this viral video about {title}! High quality 4K documentary AI short.\n\n"
+        f"Subscribe for more daily AI reels and stories!\n\n"
+        f"{' '.join(all_tags)}"
+    )
+    return {
+        "title": title,
+        "hashtags": " ".join(all_tags),
+        "seo_description": seo_desc,
+    }
+
+
+def generate_auto_thumbnails(video_path: str, title: str, output_dir: str) -> List[str]:
+    thumbnails = []
+    if not os.path.exists(video_path):
+        return thumbnails
+
+    ts = int(time.time())
+    timestamps = ["00:00:02", "00:00:05", "00:00:08"]
+    
+    for i, t in enumerate(timestamps, start=1):
+        thumb_file = os.path.join(output_dir, f"thumbnail_{i}_{ts}.jpg")
+        clean_t = re.sub(r'[^a-zA-Z0-9 ]', '', title)[:25] or "VIRAL VIDEO"
+        vf_filter = (
+            f"drawtext=text='{clean_t}':"
+            f"fontcolor=yellow:fontsize=36:x=(w-text_w)/2:y=h-140:"
+            f"box=1:boxcolor=black@0.7:boxborderw=10"
+        )
+        cmd = [
+            "ffmpeg", "-y", "-ss", t, "-i", video_path,
+            "-vframes", "1", "-vf", vf_filter,
+            thumb_file
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if res.returncode == 0 and os.path.exists(thumb_file):
+            thumbnails.append(thumb_file)
+            
+    return thumbnails
