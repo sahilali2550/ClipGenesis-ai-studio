@@ -141,85 +141,99 @@ def download_media_from_url(url: str, output_dir: str = "") -> dict:
         'nocheckcertificate': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'extractor_args': {'youtube': {'player_client': ['android', 'web', 'mweb', 'ios']}},
+        'retries': 10,
+        'fragment_retries': 10,
+        'skip_unavailable_fragments': True,
+        'socket_timeout': 30,
+        'file_access_retries': 5,
+        'geo_bypass': True,
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            if not info:
-                raise RuntimeError("Could not fetch video. Please ensure the URL is a valid, active public video.")
-            raw_title   = info.get('title', '') if isinstance(info, dict) else ''
-            duration_yt = info.get('duration', 0) if isinstance(info, dict) else 0
-            extractor   = info.get('extractor_key', 'Generic') if isinstance(info, dict) else 'Generic'
-            description = info.get('description', '') if isinstance(info, dict) else ''
-
-        # Find the downloaded video file
-        video_file = None
-        for ext in ['mp4', 'webm', 'mkv', 'mov', 'avi']:
-            candidate = os.path.join(output_dir, f"media_{timestamp}.{ext}")
-            if os.path.exists(candidate):
-                video_file = candidate
-                break
-        if not video_file:
-            for f in os.listdir(output_dir):
-                if f.startswith(f"media_{timestamp}") and not f.endswith('.vtt'):
-                    video_file = os.path.join(output_dir, f)
-                    break
-
-        if not video_file:
-            raise RuntimeError("yt-dlp did not produce a video/audio file.")
-
-        # Extract full audio as MP3 via FFmpeg (guarantees no truncation)
-        audio_mp3 = os.path.join(output_dir, f"audio_{timestamp}.mp3")
-        cmd_audio = [
-            "ffmpeg", "-y", "-i", video_file,
-            "-vn", "-c:a", "libmp3lame", "-b:a", "192k",
-            "-q:a", "2", audio_mp3,
-        ]
-        res = subprocess.run(cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if res.returncode != 0 or not os.path.exists(audio_mp3):
-            raise RuntimeError(f"FFmpeg audio extraction failed: {res.stderr.decode()[-300:]}")
-
-        # Get precise duration from FFmpeg probe
-        probe = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "csv=p=0", audio_mp3],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+    info = None
+    last_err = None
+    for attempt in range(1, 4):
         try:
-            duration = float(probe.stdout.decode().strip())
-        except Exception:
-            duration = duration_yt or 30
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    break
+        except Exception as ex:
+            last_err = ex
+            logger.warning(f"URL download attempt {attempt}/3 failed ({ex}). Retrying in 2s...")
+            time.sleep(2)
 
-        # Try to find VTT captions (Arabic preferred)
-        caption_text = ""
-        for lang in ['ar', 'en', 'ur', '']:
-            for f in os.listdir(output_dir):
-                if f.startswith(f"media_{timestamp}") and f.endswith('.vtt'):
-                    if not lang or f".{lang}." in f or f"-{lang}." in f:
-                        vtt_path = os.path.join(output_dir, f)
-                        caption_text = _parse_vtt(vtt_path)
-                        if caption_text.strip():
-                            logger.info(f"📝 Captions loaded ({lang}): {vtt_path}")
-                            break
-            if caption_text.strip():
+    if not info:
+        raise RuntimeError(f"URL Download Failed: {last_err or 'Could not fetch video. Please check internet connection or URL.'}")
+
+
+    raw_title   = info.get('title', '') if isinstance(info, dict) else ''
+    duration_yt = info.get('duration', 0) if isinstance(info, dict) else 0
+    extractor   = info.get('extractor_key', 'Generic') if isinstance(info, dict) else 'Generic'
+    description = info.get('description', '') if isinstance(info, dict) else ''
+
+    # Find the downloaded video file
+    video_file = None
+    for ext in ['mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'm4a']:
+        candidate = os.path.join(output_dir, f"media_{timestamp}.{ext}")
+        if os.path.exists(candidate):
+            video_file = candidate
+            break
+    if not video_file:
+        for f in os.listdir(output_dir):
+            if f.startswith(f"media_{timestamp}") and not f.endswith('.vtt'):
+                video_file = os.path.join(output_dir, f)
                 break
 
-        clean_title = _clean_title(raw_title)
-        logger.info(f"✅ Audio ready ({duration:.1f}s): {audio_mp3}")
-        return {
-            "audio_path":   audio_mp3,
-            "video_file":   video_file,
-            "title":        clean_title,
-            "raw_title":    raw_title,
-            "duration":     duration,
-            "platform":     extractor,
-            "caption_text": caption_text,
-        }
+    if not video_file:
+        raise RuntimeError("yt-dlp did not produce a video/audio file.")
 
-    except Exception as e:
-        logger.error(f"URL download failed '{url}': {e}")
-        raise RuntimeError(f"URL Download Failed: {e}")
+    # Extract full audio as MP3 via FFmpeg (guarantees no truncation)
+    audio_mp3 = os.path.join(output_dir, f"audio_{timestamp}.mp3")
+    cmd_audio = [
+        "ffmpeg", "-y", "-i", video_file,
+        "-vn", "-c:a", "libmp3lame", "-b:a", "192k",
+        "-q:a", "2", audio_mp3,
+    ]
+    res = subprocess.run(cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if res.returncode != 0 or not os.path.exists(audio_mp3):
+        raise RuntimeError(f"FFmpeg audio extraction failed: {res.stderr.decode()[-300:]}")
+
+    # Get precise duration from FFmpeg probe
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "csv=p=0", audio_mp3],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    try:
+        duration = float(probe.stdout.decode().strip())
+    except Exception:
+        duration = duration_yt or 30
+
+    # Try to find VTT captions (Arabic preferred)
+    caption_text = ""
+    for lang in ['ar', 'en', 'ur', '']:
+        for f in os.listdir(output_dir):
+            if f.startswith(f"media_{timestamp}") and f.endswith('.vtt'):
+                if not lang or f".{lang}." in f or f"-{lang}." in f:
+                    vtt_path = os.path.join(output_dir, f)
+                    caption_text = _parse_vtt(vtt_path)
+                    if caption_text.strip():
+                        logger.info(f"📝 Captions loaded ({lang}): {vtt_path}")
+                        break
+        if caption_text.strip():
+            break
+
+    title = raw_title.strip() or description[:80].strip() or f"Video {timestamp}"
+    logger.info(f"✅ Audio ready ({duration:.1f}s): {audio_mp3}")
+    return {
+        "audio_path": audio_mp3,
+        "video_file": video_file,
+        "title": title,
+        "raw_title": raw_title,
+        "duration": duration,
+        "platform": extractor,
+        "caption_text": caption_text,
+    }
 
 
 def _parse_vtt(vtt_path: str) -> str:
