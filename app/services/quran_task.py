@@ -148,6 +148,7 @@ def generate_quran_video(
     logo_position: str = "top_right",
     logo_size: int = 120,
     logo_opacity: float = 0.90,
+    **kwargs
 ) -> Optional[str]:
     """
     Main pipeline: fetch → audio → echo → backgrounds → subtitle frames → render video.
