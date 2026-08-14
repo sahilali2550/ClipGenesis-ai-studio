@@ -343,6 +343,11 @@ def image_to_kenburns_clip(
                 top = center_y - (current_crop_h / 2.0)
                 right = center_x + (current_crop_w / 2.0)
                 bottom = center_y + (current_crop_h / 2.0)
+
+                frame_img = img.crop((left, top, right, bottom)).resize((target_w, target_h), Image.Resampling.BILINEAR)
+                proc.stdin.write(frame_img.tobytes())
+
+            proc.stdin.close()
         except Exception as write_err:
             logger.warning(f"🎬 FFmpeg stdin write error: {write_err}")
             try:

@@ -1190,13 +1190,17 @@ def generate_video(
             )
         else:
             # Traditional subtitle rendering
-            sub = SubtitlesClip(
-                subtitles=subtitle_path, encoding="utf-8", make_textclip=make_textclip
-            )
             text_clips = []
-            for item in sub.subtitles:
-                clip = create_text_clip(subtitle_item=item)
-                text_clips.append(clip)
+            try:
+                sub = SubtitlesClip(
+                    subtitles=subtitle_path, encoding="utf-8", make_textclip=make_textclip
+                )
+                if sub and hasattr(sub, 'subtitles') and sub.subtitles:
+                    for item in sub.subtitles:
+                        clip = create_text_clip(subtitle_item=item)
+                        text_clips.append(clip)
+            except Exception as sub_err:
+                logger.warning(f"⚠️ SubtitlesClip parsing skipped: {sub_err}")
         
         video_clip = CompositeVideoClip([video_clip, *text_clips])
 
