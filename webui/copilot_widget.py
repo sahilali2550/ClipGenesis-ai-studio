@@ -1,7 +1,7 @@
 """
 webui/copilot_widget.py — ClipGenesis Master Copilot Brain & Autonomous 10-Agent Swarm UI Drawer
-Renders Power-Cut Checkpoint Auto-Resume Banner, 10-Bot Team Live Progress, 9Router Multi-Model Switcher,
-Interactive Chat, AND Autonomous Task Execution when commands like "Surah 112 ki video bana do" are issued.
+Non-blocking, rock-solid implementation with Power-Cut Recovery, 10-Agent Team Status,
+and On-Demand / Safe Autonomous Video Generation.
 """
 
 import os
@@ -24,6 +24,7 @@ def _render_bot_status_plain(sys_status: dict):
 def _execute_autonomous_action(action: dict):
     """
     Executes real video generation task directly when Copilot Brain receives a command!
+    Runs with full error catching so it never crashes the host page.
     """
     action_type = action.get("type")
     
@@ -35,7 +36,6 @@ def _execute_autonomous_action(action: dict):
         surah_name = surah_info.get("name", f"Surah {surah_num}")
 
         st.info(f"🚀 **10-Agent Swarm Action:** Generating Quran Video for Surah {surah_name} (Ayahs {from_ayah}–{to_ayah})…")
-        
         prog_bar = st.progress(0.1, text="⏳ 10-Agent Swarm rendering Quran Video...")
         
         task_id = f"copilot_quran_{int(time.time())}"
@@ -63,8 +63,8 @@ def _execute_autonomous_action(action: dict):
                 st.video(video_path)
                 st.session_state["copilot_last_rendered_video"] = video_path
             else:
-                prog_bar.progress(0.0, text="❌ Error")
-                st.error("❌ Video rendering error. Check logs for details.")
+                prog_bar.progress(0.0, text="❌ Incomplete")
+                st.warning("⚠️ Background footage download failed or video incomplete. Check logs.")
         except Exception as ex:
             prog_bar.progress(0.0, text="❌ Error")
             st.error(f"❌ Swarm Execution Error: {ex}")
@@ -72,19 +72,16 @@ def _execute_autonomous_action(action: dict):
     elif action_type == "general_video":
         topic = action.get("topic", "General Video")
         st.info(f"🚀 **10-Agent Swarm Action:** Generating Reel for topic '{topic}'…")
-        
         prog_bar = st.progress(0.1, text=f"⏳ 10-Agent Swarm generating script & scenes for '{topic}'...")
         task_id = f"copilot_gen_{int(time.time())}"
 
         try:
-            # Run Swarm Orchestrator
             swarm_res = agent_swarm.swarm_orchestrator.execute_autopilot_swarm(
                 task_id=task_id,
                 topic=topic
             )
             prog_bar.progress(0.6, text="🎨 Rendering scenes & audio...")
             
-            # Start Video Task
             from app.models.schema import VideoParams
             params = VideoParams(
                 video_subject=topic,
@@ -105,7 +102,7 @@ def _execute_autonomous_action(action: dict):
 
 def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
     """
-    Renders inner content of Copilot Brain with direct autonomous action execution.
+    Renders inner content of Copilot Brain.
     """
     sys_status = copilot_brain.get_copilot_system_status()
     nr_status = "🟢 Connected" if sys_status.get("ninerouter_online") else "🔴 Offline"
@@ -177,19 +174,15 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
         if st.button("🎨 Image Style", use_container_width=True, key=f"act_style_{key_suffix}"):
             prompt_to_send = "Recommend the best 9Router AI image style for my topic: 3D Pixar, Photorealistic 8K, or Cyberpunk?"
 
-    # ── 5. Chat History & Execution ──────────────────────────────────────
+    # ── 5. Chat History Display ──────────────────────────────────────────
     if "copilot_chat_history" not in st.session_state:
         saved_mem = copilot_brain.load_brain_memory()
         st.session_state["copilot_chat_history"] = saved_mem.get("chat_history", [])
 
-    # Display history (cleaning action markers from display)
     chat_container = st.container(height=240)
-    pending_action = None
-
     with chat_container:
-        for msg in st.session_state["copilot_chat_history"]:
+        for idx, msg in enumerate(st.session_state["copilot_chat_history"]):
             content = msg["content"]
-            # Extract action marker if present
             m_act = re.search(r"\[AUTONOMOUS_ACTION:\s*(\{.*?\})\]", content)
             display_text = re.sub(r"\[AUTONOMOUS_ACTION:\s*\{.*?\}\]", "", content).strip()
             
@@ -199,13 +192,28 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
                 st.chat_message("assistant").write(display_text)
                 if m_act:
                     try:
-                        pending_action = json.loads(m_act.group(1))
+                        act_payload = json.loads(m_act.group(1))
+                        act_type = act_payload.get("type", "video")
+                        if act_type == "quran_video":
+                            s_num = act_payload.get("surah", 112)
+                            f_a = act_payload.get("from_ayah", 1)
+                            t_a = act_payload.get("to_ayah", 4)
+                            st.markdown(f"🏷️ *Queued Action: Quran Video (Surah {s_num}, Ayahs {f_a}–{t_a})*")
+                            if st.button(f"▶️ Run Surah {s_num} Video Now", key=f"btn_act_run_{idx}_{key_suffix}"):
+                                _execute_autonomous_action(act_payload)
+                        elif act_type == "general_video":
+                            top = act_payload.get("topic", "")
+                            st.markdown(f"🏷️ *Queued Action: Topic Video ('{top}')*")
+                            if st.button(f"▶️ Run '{top}' Video Now", key=f"btn_act_run_{idx}_{key_suffix}"):
+                                _execute_autonomous_action(act_payload)
                     except Exception:
                         pass
 
-    # Render pending autonomous action if just issued
-    if pending_action:
-        _execute_autonomous_action(pending_action)
+    # Execute newly submitted active action if present in session state
+    if st.session_state.get("copilot_pending_action"):
+        curr_act = st.session_state["copilot_pending_action"]
+        st.session_state["copilot_pending_action"] = None
+        _execute_autonomous_action(curr_act)
 
     # ── 6. Chat Input ────────────────────────────────────────────────────
     user_input = st.chat_input(
@@ -222,6 +230,15 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
                 selected_model_key=selected_model_key,
                 current_context=current_page_name
             )
+            
+            # Check if an autonomous action was generated
+            m_act_new = re.search(r"\[AUTONOMOUS_ACTION:\s*(\{.*?\})\]", ans)
+            if m_act_new:
+                try:
+                    st.session_state["copilot_pending_action"] = json.loads(m_act_new.group(1))
+                except Exception:
+                    pass
+
         st.session_state["copilot_chat_history"].append({"role": "assistant", "content": ans})
         mem = copilot_brain.load_brain_memory()
         mem["chat_history"] = st.session_state["copilot_chat_history"]
@@ -232,37 +249,41 @@ def _render_copilot_content(current_page_name: str, key_suffix: str = "main"):
 def render_copilot_widget(current_page_name: str = "Dashboard"):
     """
     Renders AI Copilot Brain bar on top of main canvas and popover drawer.
+    Guaranteed non-blocking so the rest of the page always renders smoothly.
     """
-    sys_status = copilot_brain.get_copilot_system_status()
-    nr_online = sys_status.get("ninerouter_online", False)
-    recovery = sys_status.get("powercut_recovery_available", False)
+    try:
+        sys_status = copilot_brain.get_copilot_system_status()
+        nr_online = sys_status.get("ninerouter_online", False)
+        recovery = sys_status.get("powercut_recovery_available", False)
 
-    badge = "🛡️ Power-Cut Recovery Active" if recovery else ("🟢 10-Agent Swarm Ready" if nr_online else "🔴 9Router Offline")
+        badge = "🛡️ Power-Cut Recovery Active" if recovery else ("🟢 10-Agent Swarm Ready" if nr_online else "🔴 9Router Offline")
 
-    # Top Banner & Popover
-    col_left, col_right = st.columns([4, 1])
-    with col_left:
-        st.markdown(
-            f"""
-            <div style="background:linear-gradient(90deg,rgba(0,229,160,0.10),rgba(0,128,255,0.10));
-                        border:1px solid rgba(0,229,160,0.30);border-radius:8px;
-                        padding:7px 14px;margin:2px 0 10px 0;">
-                <span style="color:#00E5A0;font-weight:700;font-size:0.9rem;">
-                    🧠 ClipGenesis AI Copilot Brain (CEO Agent) &nbsp;•&nbsp; {badge}
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True
+        # Top Banner & Popover
+        col_left, col_right = st.columns([4, 1])
+        with col_left:
+            st.markdown(
+                f"""
+                <div style="background:linear-gradient(90deg,rgba(0,229,160,0.10),rgba(0,128,255,0.10));
+                            border:1px solid rgba(0,229,160,0.30);border-radius:8px;
+                            padding:7px 14px;margin:2px 0 10px 0;">
+                    <span style="color:#00E5A0;font-weight:700;font-size:0.9rem;">
+                        🧠 ClipGenesis AI Copilot Brain (CEO Agent) &nbsp;•&nbsp; {badge}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with col_right:
+            with st.popover("💬 AI Copilot Autopilot", use_container_width=True):
+                _render_copilot_content(current_page_name, key_suffix="popover")
+
+        # Sidebar Simple Status
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(
+            f"**🧠 AI Copilot Autopilot**\n\n"
+            f"9Router: {'🟢 Online' if nr_online else '🔴 Offline'}\n\n"
+            f"Swarm: 10 Autonomous Agents\n\n"
+            f"{'🛡️ Power-Cut Recovery Pending' if recovery else '✅ Autopilot Ready'}"
         )
-    with col_right:
-        with st.popover("💬 AI Copilot Autopilot", use_container_width=True):
-            _render_copilot_content(current_page_name, key_suffix="popover")
-
-    # Sidebar Simple Status
-    st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        f"**🧠 AI Copilot Autopilot**\n\n"
-        f"9Router: {'🟢 Online' if nr_online else '🔴 Offline'}\n\n"
-        f"Swarm: 10 Autonomous Agents\n\n"
-        f"{'🛡️ Power-Cut Recovery Pending' if recovery else '✅ Autopilot Ready'}"
-    )
+    except Exception as e:
+        st.warning(f"Copilot Widget notice: {e}")

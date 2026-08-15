@@ -265,6 +265,16 @@ def generate_quran_video(
         materials = []
     progress(7, 10, "Backgrounds ready")
 
+    # Determine video dimensions from aspect ratio
+    if "9:16" in video_aspect:
+        video_width, video_height = 1080, 1920
+    elif "16:9" in video_aspect:
+        video_width, video_height = 1920, 1080
+    elif "1:1" in video_aspect:
+        video_width, video_height = 1080, 1080
+    else:
+        video_width, video_height = 1080, 1920
+
     # ── 6. Build subtitle images per ayah with word-level timing ─────────────
     log("✍️ Rendering Arabic subtitle frames with word-by-word karaoke highlight...")
     subtitle_clips_data = []  # list of (start_sec, end_sec, image_path)
