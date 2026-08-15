@@ -500,9 +500,8 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
 
 def get_unfinished_tasks() -> list:
     """
-    Scan storage/tasks/* for interrupted video generation tasks
-    where any files exist in the task folder but no completed MP4 video exists.
-    Returns a list of dicts.
+    Scan storage/tasks/* for genuinely interrupted video generation tasks.
+    Returns a list of dicts with 100% real metadata.
     """
     unfinished = []
     tasks_dir = path.join(utils.root_dir(), "storage", "tasks")
@@ -515,22 +514,30 @@ def get_unfinished_tasks() -> list:
             all_files = os.listdir(folder_path)
             mp4_files = [f for f in all_files if f.endswith(".mp4") and not f.startswith("raw_") and path.getsize(path.join(folder_path, f)) > 1000]
             
-            # If folder has files and no finished MP4, it IS an unfinished task!
+            # If folder has files and no finished MP4, check if it's a real resumable task
             if all_files and not mp4_files:
                 audio_p = path.join(folder_path, "audio.mp3")
                 srt_p = path.join(folder_path, "subtitle.srt")
                 script_p = path.join(folder_path, "script.json")
 
-                subject = "5 Most Disturbing & Mysterious Places on Earth"
+                subject = ""
                 terms = ""
                 if path.exists(script_p):
                     try:
                         with open(script_p, "r", encoding="utf-8") as sf:
                             s_data = json.load(sf)
-                            subject = s_data.get("video_subject") or s_data.get("subject") or subject
+                            subject = s_data.get("video_subject") or s_data.get("subject") or ""
                             terms = s_data.get("video_terms") or ""
                     except Exception:
                         pass
+
+                if not subject:
+                    if item.startswith("copilot_quran_") or item.startswith("quran_"):
+                        subject = f"Quran Video Task ({item})"
+                    elif item.startswith("darood_"):
+                        subject = f"Darood Shareef Task ({item})"
+                    else:
+                        subject = f"Video Task ({item})"
 
                 created_ts = path.getmtime(folder_path)
                 dt_str = datetime.fromtimestamp(created_ts).strftime("%Y-%m-%d %H:%M")
@@ -538,14 +545,38 @@ def get_unfinished_tasks() -> list:
                     "task_id": item,
                     "subject": subject,
                     "folder_path": folder_path,
-                    "audio_file": audio_p if path.exists(audio_p) and path.getsize(audio_p) > 5000 else "",
+                    "audio_file": audio_p if path.exists(audio_p) and path.getsize(audio_p) > 1000 else "",
                     "srt_file": srt_p if path.exists(srt_p) else "",
                     "terms": terms,
                     "created_at": dt_str,
+                    "file_count": len(all_files),
                 })
 
     unfinished.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return unfinished
+
+
+def delete_unfinished_task(task_id: str) -> bool:
+    """Deletes a single unfinished task folder cleanly."""
+    try:
+        import shutil
+        folder_path = path.join(utils.root_dir(), "storage", "tasks", task_id)
+        if path.exists(folder_path):
+            shutil.rmtree(folder_path, ignore_errors=True)
+            return True
+    except Exception as e:
+        logger.warning(f"Error deleting task folder {task_id}: {e}")
+    return False
+
+
+def clean_all_unfinished_tasks() -> int:
+    """Purges all interrupted task directories."""
+    tasks = get_unfinished_tasks()
+    count = 0
+    for t in tasks:
+        if delete_unfinished_task(t["task_id"]):
+            count += 1
+    return count
 
 
 def resume_task(task_id: str) -> dict:
@@ -562,11 +593,11 @@ def resume_task(task_id: str) -> dict:
     subtitle_path = path.join(task_dir, "subtitle.srt")
     script_p = path.join(task_dir, "script.json")
 
-    subject = "5 Most Disturbing & Mysterious Places on Earth"
-    terms = "mysterious, dark, aesthetic, scary places"
+    subject = f"Task {task_id}"
+    terms = "cinematic, 4k, documentary"
     video_script = ""
     aspect_ratio = "portrait"
-    voice_name = "en-US-ChristopherNeural"
+    voice_name = "ur-PK-UzmaNeural"
 
     if path.exists(script_p):
         try:

@@ -1960,6 +1960,10 @@ def render_link_recreator_wrapper():
     from webui import link_recreator_page
     link_recreator_page.render_link_recreator_page()
 
+def render_task_recovery_wrapper():
+    from webui import task_recovery_page
+    task_recovery_page.render_task_recovery_page()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE ROUTER  (must be after all render_* functions are defined)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1979,10 +1983,8 @@ PAGE_MAP = {
     "assets":        render_assets_page,
     "projects":      render_projects_page,
     "settings":      render_settings,
+    "task_recovery": render_task_recovery_wrapper,
 }
-
-# Render Global Unfinished Task Banner at the very top of the app
-render_unfinished_task_banner()
 
 # ── Render AI Copilot Brain Floating Widget ─────────────────────────────────
 try:

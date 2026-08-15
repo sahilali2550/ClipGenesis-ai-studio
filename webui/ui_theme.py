@@ -715,6 +715,13 @@ div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(13) {
   box-shadow: 0 5px 0 #1E293B, 0 6px 12px rgba(0,0,0,0.5) !important;
 }
 
+/* 14. Task Recovery - Emerald Teal */
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-child(14),
+div[data-testid="stRadio"] div[role="radiogroup"] label:nth-of-type(14) {
+  background: linear-gradient(180deg, #0D9488 0%, #0F766E 100%) !important;
+  box-shadow: 0 5px 0 #115E59, 0 6px 12px rgba(0,0,0,0.5) !important;
+}
+
 /* ── Active Tab Radium Light Blinking Pulse Animation (MUST OVERRIDE ALL NTH-CHILD RULES) ────────────────────────── */
 @keyframes radium-light-blink {
   0%, 100% {
@@ -776,6 +783,7 @@ PAGES = [
     {"icon": "✍️", "label": "Smart Script",     "key": "smart_script"},
     {"icon": "🎯", "label": "A/B Testing",     "key": "ab_testing"},
     {"icon": "⚙️", "label": "Settings",       "key": "settings"},
+    {"icon": "🛡️", "label": "Task Recovery",  "key": "task_recovery"},
 ]
 
 
